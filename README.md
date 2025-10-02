@@ -1,30 +1,69 @@
-# MoneyApp Android (WebView Template)
+# MoneyApp Android
 
-Bu repo, mevcut MoneyApp (Laravel) kurulumunuzu **Android APK** olarak paketlemek için minimalist bir **WebView** şablonudur.
+MoneyApp Android, mevcut [MoneyApp (Laravel)](https://github.com/BBahadirKAYA/MoneyApp) backend’ini **mobil cihazlarda** kullanabilmek için geliştirilmiş **native Android uygulamasıdır**.  
+Proje Kotlin ile yazılmıştır ve `Retrofit`, `Room`, `WorkManager` gibi modern Android kütüphanelerini kullanır.
 
-## Hızlı Başlangıç
-1) `BASE_URL` değerini değiştirin: `app/build.gradle.kts` içinde
-```kotlin
-buildConfigField("String", "BASE_URL", ""https://your-moneyapp-url.example"")
-```
-MoneyApp'inizin **HTTPS** URL'si ile değiştirin.
+---
 
-2) Android Studio ile açın:
-- `File > Open` ve bu klasörü seçin.
-- İlk senkronizasyonda **Gradle Wrapper** eksikse
-  ```bash
-  gradle wrapper
-  ```
-  komutu ile `gradle/wrapper/gradle-wrapper.jar` oluşturun (ya da Android Studio otomatik yükler).
+## 🚀 Başlangıç
 
-3) Çalıştırın:
-- `Run ▶` ile emülatörde açın.
-- **Build > Build APK(s)** ile APK üretin. Çıktı: `app/build/outputs/apk/...`
+### 1. Depoyu Klonla
+```bash
+git clone https://github.com/BBahadirKAYA/MoneyAppAndroid.git
+cd MoneyAppAndroid
 
-## Notlar
-- WebView, **aynı origin** (BASE_URL) içinde uygulama içi; farklı domain linklerini cihazın tarayıcısında açar.
-- `network_security_config`: HTTP engelli, yalnızca HTTPS.
-- Deep link için `AndroidManifest.xml` içindeki `your-moneyapp-url.example` alanını kendi domain’inizle değiştirin.
+2. Android Studio ile Aç
 
-## CI (Opsiyonel)
-`.github/workflows/android.yml` dosyası ile **Debug APK** otomatik derlenir ve **artifact** olarak yüklenir.
+    Android Studio Hedgehog/Koala (veya üstü) versiyonu önerilir.
+
+    Projeyi açınca Gradle bağımlılıkları otomatik olarak senkronize edilir.
+
+3. Çalıştır
+
+    Emülatörde ya da fiziksel cihazda ▶️ Run tuşuna basarak uygulamayı başlatabilirsin.
+
+    Backend için varsayılan BASE_URL:
+
+http://10.0.2.2:8000
+
+Fiziksel cihazda çalıştıracaksan ya yerel IP adresini kullan ya da:
+
+adb reverse tcp:8000 tcp:8000
+
+📦 Özellikler
+
+    ✅ Laravel backend ile REST API üzerinden haberleşme
+
+    ✅ Room veritabanı ile offline kayıt desteği
+
+    ✅ WorkManager ile arka plan senkronizasyon işleri
+
+    ✅ Retrofit + Moshi + OkHttp ile modern network katmanı
+
+    ✅ ViewBinding ile güvenli UI erişimi
+
+🛠️ Geliştirme
+Build Komutları
+
+# Debug APK oluştur
+./gradlew assembleDebug
+
+# Release APK oluştur
+./gradlew assembleRelease
+
+Testler
+
+./gradlew test
+./gradlew connectedAndroidTest
+
+📌 Katkı
+
+Pull Request’ler ve öneriler her zaman açıktır.
+📄 Lisans
+
+Bu proje MIT lisansı ile lisanslanmıştır. Ayrıntılar için LICENSE
+
+dosyasına bakınız.
+
+
+---

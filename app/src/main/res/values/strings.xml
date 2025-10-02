@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">MoneyApp</string>
+    <string name="webview_loading">Yükleniyor…</string>
+</resources>

@@ -1,58 +1,28 @@
 package com.moneyapp.android
 
-import android.annotation.SuppressLint
 import android.os.Bundle
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.activity.OnBackPressedCallback
-import com.moneyapp.android.databinding.ActivityMainBinding
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.moneyapp.android.net.ApiClient
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 class MainActivity : AppCompatActivity() {
-
-
-    private lateinit var binding: ActivityMainBinding
-    private val baseUrl: String = BuildConfig.BASE_URL
-
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main) // mevcut layout’un
 
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        val wv: WebView = binding.webview
-
-        // WebView ayarları
-        wv.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            setSupportZoom(true)
-            builtInZoomControls = true
-            displayZoomControls = false
-            // HTTP içerik yüklemeyeceksen sabit bırak:
-            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            userAgentString = "$userAgentString MoneyAppAndroid"
-        }
-
-        // Uygulama içinde aç
-        wv.webViewClient = WebViewClient()
-
-        // İlk URL
-        val url = if (baseUrl.isBlank()) "https://example.org" else baseUrl
-
-        wv.loadUrl(url)
-
-        // Geri tuşu davranışı
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (wv.canGoBack()) {
-                    wv.goBack()
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                }
+        // Ping testi
+        ApiClient.api.ping().enqueue(object : Callback<String> {
+            override fun onResponse(call: Call<String>, resp: Response<String>) {
+                val body = resp.body() ?: "<null>"
+                Toast.makeText(this@MainActivity, "Ping OK: $body", Toast.LENGTH_SHORT).show()
+                android.util.Log.d("MoneyApp", "PING -> $body")
+            }
+            override fun onFailure(call: Call<String>, t: Throwable) {
+                Toast.makeText(this@MainActivity, "Ping FAIL: ${t.message}", Toast.LENGTH_LONG).show()
+                android.util.Log.e("MoneyApp", "PING error", t)
             }
         })
     }

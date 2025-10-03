@@ -1,4 +1,4 @@
-package com.moneyapp.android.net
+package com.moneyapp.android.data.net
 
 import retrofit2.Call
 import retrofit2.http.GET

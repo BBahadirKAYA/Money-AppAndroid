@@ -1,25 +1,19 @@
 package com.moneyapp.android
 
 import android.app.Application
-import androidx.room.Room
 import com.moneyapp.android.data.db.AppDatabase
+import com.moneyapp.android.data.repository.TransactionRepository
+import com.moneyapp.android.ui.MainViewModelFactory
 
 class MoneyApp : Application() {
 
-    companion object {
-        lateinit var db: AppDatabase
-            private set
-    }
+    // Veritabanını sadece ihtiyaç olduğunda bir kere oluşturmak için 'lazy' kullanıyoruz.
+    private val database by lazy { AppDatabase.getInstance(this) } // getInstance metodunu kullanıyoruz.
 
-    override fun onCreate() {
-        super.onCreate()
+    // Repository'yi oluştururken DAO'yu veritabanından alıyoruz.
+    val transactionRepository by lazy { TransactionRepository(database.transactionDao()) }
 
-        db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "moneyapp.db"
-        )
-            .fallbackToDestructiveMigration()  // <-- yeni API
-            .build()
-    }
+    // ViewModelFactory'yi oluştururken repository'yi kullanıyoruz.
+    val mainViewModelFactory by lazy { MainViewModelFactory(transactionRepository) }
+
 }

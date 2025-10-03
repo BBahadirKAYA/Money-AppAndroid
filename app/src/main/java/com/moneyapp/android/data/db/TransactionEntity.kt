@@ -14,6 +14,7 @@ data class TransactionEntity(
     val amount: Long,
     val note: String? = null,
     val date: Long, // ✅ Kotlin tip düzeltildi
+    val type: CategoryType,
     val dirty: Boolean = true,
     val deleted: Boolean = false,
     val updatedAtLocal: Long = System.currentTimeMillis()

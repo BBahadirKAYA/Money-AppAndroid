@@ -2,6 +2,7 @@
 package com.moneyapp.android.net
 
 import com.moneyapp.android.BuildConfig
+import com.moneyapp.android.data.net.ApiService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit

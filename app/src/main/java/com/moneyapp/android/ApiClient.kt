@@ -8,32 +8,43 @@ import retrofit2.Retrofit
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 object ApiClient {
 
     private fun ensureTrailingSlash(url: String) =
         if (url.endsWith("/")) url else "$url/"
 
-    private val http by lazy {
-        OkHttpClient.Builder()
+    private val moshi: Moshi by lazy {
+        Moshi.Builder()
+            .add(KotlinJsonAdapterFactory())
+            .build()
+    }
+
+    private val http: OkHttpClient by lazy {
+        val builder = OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
-            .apply {
-                val log = HttpLoggingInterceptor().apply {
-                    level = HttpLoggingInterceptor.Level.BODY
-                }
-                addInterceptor(log)
+            .retryOnConnectionFailure(true)
+
+        if (BuildConfig.DEBUG) {
+            val log = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
             }
-            .build()
+            builder.addInterceptor(log)
+        }
+
+        builder.build()
     }
 
     val retrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(ensureTrailingSlash(BuildConfig.BASE_URL)) // örn: http://10.0.2.2:8001/
+            .baseUrl(ensureTrailingSlash(BuildConfig.BASE_URL))
             .client(http)
-            .addConverterFactory(ScalarsConverterFactory.create()) // "pong" gibi düz text
-            .addConverterFactory(MoshiConverterFactory.create())   // JSON endpoint’ler
+            .addConverterFactory(ScalarsConverterFactory.create())      // düz metin
+            .addConverterFactory(MoshiConverterFactory.create(moshi))   // JSON
             .build()
     }
 

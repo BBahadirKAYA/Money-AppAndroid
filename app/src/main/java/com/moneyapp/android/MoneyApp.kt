@@ -19,7 +19,7 @@ class MoneyApp : Application() {
             AppDatabase::class.java,
             "moneyapp.db"
         )
-            .fallbackToDestructiveMigration(dropAllTables = true)  // <-- yeni API
+            .fallbackToDestructiveMigration()  // <-- yeni API
             .build()
     }
 }

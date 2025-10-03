@@ -241,7 +241,7 @@ data class Account(
 
 ---
 ## Geliştirici Notları
-- [Ngrok URL’sini Google Sheets’e otomatik yazdırma](docs/ngrok-to-sheets.md)
+- [Ngrok URL’sini Google Sheets’e otomatik yazdırma](docs/ngrok_to_sheets.md)
 
 ## 📄 Lisans
 MIT (veya projenin seçtiği lisans)

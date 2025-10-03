@@ -11,4 +11,13 @@ interface AccountDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(account: AccountEntity): Long
+    @Query("SELECT * FROM accounts WHERE uuid = :uuid LIMIT 1")
+    suspend fun getByUuid(uuid: String): AccountEntity?
+
+    @Query("SELECT * FROM accounts WHERE dirty = 1")
+    suspend fun getDirty(): List<AccountEntity>
+
+    @Query("UPDATE accounts SET deleted = 1, dirty = 1 WHERE localId = :id")
+    suspend fun softDelete(id: Long)
+
 }

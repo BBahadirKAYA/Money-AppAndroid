@@ -1,3 +1,45 @@
+
+# Gradle / build
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+gradle/wrapper/gradle-wrapper.properties
+gradlew
+gradlew.bat
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+.kotlinc/
+.kotlin/
+captures/
+
+# Local config
+local.properties
+
+# Keystore
+*.jks
+*.keystore
+
+# Google services
+google-services.json
+
+# Room / KSP cache (derleme artıkları)
+app/build/ksp*/
+app/build/tmp/ksp*/
+
+# Paket çıktıları
+*.apk
+*.aab
+**/output-metadata.json
+
+# Profiling / logs
+*.hprof
+*.log
+
+# OS çer çöp
+.DS_Store
+Thumbs.db
 # Gradle files
 .gradle/
 build/

@@ -240,6 +240,8 @@ data class Account(
 - **ngrok** → https URL kullan, gerekirse CORS ayarlarını backend’de aç.
 
 ---
+## Geliştirici Notları
+- [Ngrok URL’sini Google Sheets’e otomatik yazdırma](docs/ngrok-to-sheets.md)
 
 ## 📄 Lisans
 MIT (veya projenin seçtiği lisans)

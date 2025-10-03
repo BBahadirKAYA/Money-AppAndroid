@@ -1,136 +1,30 @@
-# MoneyApp Android ↔ Laravel Backend Entegrasyon Özeti
+# MoneyApp Android (WebView Template)
 
-Bu doküman Android uygulaması ile Laravel backend arasında Retrofit üzerinden API bağlantısı kurmak için yapılan adımları özetler.
+Bu repo, mevcut MoneyApp (Laravel) kurulumunuzu **Android APK** olarak paketlemek için minimalist bir **WebView** şablonudur.
 
----
+## Hızlı Başlangıç
+1) `BASE_URL` değerini değiştirin: `app/build.gradle.kts` içinde
+```kotlin
+buildConfigField("String", "BASE_URL", ""https://your-moneyapp-url.example"")
+```
+MoneyApp'inizin **HTTPS** URL'si ile değiştirin.
 
-## 1. Laravel tarafı
-- `routes/api.php` içine test endpointi eklendi:
-  ```php
-  Route::get('/ping', function () {
-      return response('pong');
-  });
-  ```
-- `php artisan serve --host=127.0.0.1 --port=8001` ile backend çalıştırıldı.
-- Test:
+2) Android Studio ile açın:
+- `File > Open` ve bu klasörü seçin.
+- İlk senkronizasyonda **Gradle Wrapper** eksikse
   ```bash
-  curl http://127.0.0.1:8001/api/ping
-  # çıktı: pong
+  gradle wrapper
   ```
+  komutu ile `gradle/wrapper/gradle-wrapper.jar` oluşturun (ya da Android Studio otomatik yükler).
 
----
+3) Çalıştırın:
+- `Run ▶` ile emülatörde açın.
+- **Build > Build APK(s)** ile APK üretin. Çıktı: `app/build/outputs/apk/...`
 
-## 2. Android tarafı – Gradle ayarları
-- `app/build.gradle.kts`:
-  ```kotlin
-  implementation("com.squareup.retrofit2:retrofit:2.11.0")
-  implementation("com.squareup.retrofit2:converter-scalars:2.11.0") // düz text için
-  implementation("com.squareup.retrofit2:converter-moshi:2.11.0")   // JSON için
-  implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
-  ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.1")
-  ```
+## Notlar
+- WebView, **aynı origin** (BASE_URL) içinde uygulama içi; farklı domain linklerini cihazın tarayıcısında açar.
+- `network_security_config`: HTTP engelli, yalnızca HTTPS.
+- Deep link için `AndroidManifest.xml` içindeki `your-moneyapp-url.example` alanını kendi domain’inizle değiştirin.
 
-- `gradle.properties`:
-  ```
-  BASE_URL=http://10.0.2.2:8001/
-  ```
-
-- `build.gradle.kts` defaultConfig:
-  ```kotlin
-  val backendUrl = (project.findProperty("BASE_URL") as String? ?: "http://10.0.2.2:8001/")
-  buildConfigField("String", "BASE_URL", "\"$backendUrl\"")
-  ```
-
----
-
-## 3. Network Security Config
-- `app/src/debug/res/xml/network_security_config.xml`:
-  ```xml
-  <?xml version="1.0" encoding="utf-8"?>
-  <network-security-config>
-      <base-config cleartextTrafficPermitted="true">
-          <trust-anchors>
-              <certificates src="system" />
-          </trust-anchors>
-      </base-config>
-  </network-security-config>
-  ```
-- `AndroidManifest.xml` application tag:
-  ```xml
-  <application
-      android:usesCleartextTraffic="true"
-      android:networkSecurityConfig="@xml/network_security_config"
-      ...>
-  ```
-
----
-
-## 4. Retrofit yapılandırması
-- `ApiService.kt`:
-  ```kotlin
-  package com.moneyapp.android.net
-
-  import retrofit2.Call
-  import retrofit2.http.GET
-
-  interface ApiService {
-      @GET("api/ping")
-      fun ping(): Call<String>
-
-      @GET("api/transactions")
-      fun transactions(): Call<String>
-
-      @GET("api/accounts")
-      fun accounts(): Call<String>
-  }
-  ```
-
-- `ApiClient.kt`:
-  ```kotlin
-  package com.moneyapp.android.net
-
-  import com.squareup.moshi.Moshi
-  import retrofit2.Retrofit
-  import retrofit2.converter.moshi.MoshiConverterFactory
-  import retrofit2.converter.scalars.ScalarsConverterFactory
-
-  object ApiClient {
-      private val moshi = Moshi.Builder().build()
-
-      private val retrofit = Retrofit.Builder()
-          .baseUrl(BuildConfig.BASE_URL)
-          .addConverterFactory(ScalarsConverterFactory.create())
-          .addConverterFactory(MoshiConverterFactory.create(moshi))
-          .build()
-
-      val api: ApiService = retrofit.create(ApiService::class.java)
-  }
-  ```
-
----
-
-## 5. Activity içinde kullanım
-- `TestDbActivity.kt` örneği:
-  ```kotlin
-  ApiClient.api.ping().enqueue(object : Callback<String> {
-      override fun onResponse(call: Call<String>, resp: Response<String>) {
-          val body = resp.body()?.trim()
-          showSnack("Ping OK: $body")
-      }
-
-      override fun onFailure(call: Call<String>, t: Throwable) {
-          showSnack("Ping ERR: ${t.message}")
-      }
-  })
-  ```
-
----
-
-## 6. Sonuç
-✅ Android uygulaması `ping` endpointine bağlanıp **"pong"** cevabını aldı.
-
-Sonraki adımlar:
-- Transactions ve Accounts endpointlerini test etme
-- JSON modellerini (Moshi ile) tanımlayıp liste olarak parse etme
-- RecyclerView ile ekranda gösterme
-
+## CI (Opsiyonel)
+`.github/workflows/android.yml` dosyası ile **Debug APK** otomatik derlenir ve **artifact** olarak yüklenir.

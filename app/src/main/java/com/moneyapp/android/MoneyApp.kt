@@ -7,9 +7,9 @@ import com.moneyapp.android.ui.MainViewModelFactory
 
 class MoneyApp : Application() {
 
-    // Veritabanını sadece ihtiyaç olduğunda bir kere oluşturmak için 'lazy' kullanıyoruz.
-    private val database by lazy { AppDatabase.getInstance(this) } // getInstance metodunu kullanıyoruz.
+    private val database by lazy { AppDatabase.getInstance(this) }
 
+    val transactionRepository by lazy { TransactionRepository(database.transactionDao()) }
 
-
+    val mainViewModelFactory by lazy { MainViewModelFactory(transactionRepository) }
 }

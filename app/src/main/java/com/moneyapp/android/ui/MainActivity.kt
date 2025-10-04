@@ -19,16 +19,16 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Application sınıfından ViewModelFactory'yi alıyoruz
+        // 1. Application sınıfından ViewModelFactory'yi alıyoruz
         val factory = (application as MoneyApp).mainViewModelFactory
 
-        // Factory'yi kullanarak ViewModel'i oluşturuyoruz
+        // 2. Factory'yi kullanarak ViewModel'i oluşturuyoruz
         viewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
 
-        // RecyclerView'ı ve Adapter'ı ayarlıyoruz
+        // 3. RecyclerView'ı ve Adapter'ı ayarlıyoruz
         setupRecyclerView()
 
-        // ViewModel'den gelen veri akışını dinleyip listeyi güncelliyoruz
+        // 4. ViewModel'den gelen veri akışını dinleyip listeyi güncelliyoruz
         observeTransactions()
     }
 
@@ -42,9 +42,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeTransactions() {
+        // lifecycleScope, bu Activity'nin yaşam döngüsüne bağlı bir Coroutine başlatır.
+        // Activity yok olduğunda bu Coroutine de otomatik olarak iptal edilir.
         lifecycleScope.launch {
             viewModel.transactions.collect { transactionList ->
-                // Adapter'a yeni listeyi gönderiyoruz, o da ekranı güncelliyor
+                // Veritabanından yeni bir liste geldiğinde, Adapter'a gönderiyoruz.
+                // Adapter, en verimli şekilde listeyi günceller.
                 transactionAdapter.submitList(transactionList)
             }
         }

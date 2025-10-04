@@ -1,12 +1,14 @@
 package com.moneyapp.android.ui
-
+import com.moneyapp.android.data.net.ApiClient
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.moneyapp.android.net.ApiClient
+
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+
+
 
 class TestDbActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,9 +1,7 @@
 package com.moneyapp.android.data.repository
 
 import android.util.Log
-import com.moneyapp.android.data.db.CategoryType
-import com.moneyapp.android.data.db.TransactionDao
-import com.moneyapp.android.data.db.TransactionEntity
+import com.moneyapp.android.data.db.*
 import com.moneyapp.android.data.net.ApiClient
 import com.moneyapp.android.data.net.TransactionDto
 import kotlinx.coroutines.Dispatchers
@@ -11,84 +9,70 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.time.*
 
 class TransactionRepository(
     private val transactionDao: TransactionDao
 ) {
-
     fun getAllTransactions(): Flow<List<TransactionEntity>> = transactionDao.getAll()
 
     suspend fun refreshTransactions() = withContext(Dispatchers.IO) {
         try {
-            val remote: List<TransactionDto> = ApiClient.api.getTransactions()
+            val remote = ApiClient.api.getTransactions()
             val entities = remote.mapNotNull { it.toEntityOrNull() }
-
-            // Room versiyonuna göre toplu insert yerine tek tek yazıyoruz
-            entities.forEach { entity ->
-                transactionDao.insertOrUpdate(entity)
-            }
-
+            entities.forEach { transactionDao.insertOrUpdate(it) }
             Log.d("Repo", "Inserted/updated ${entities.size} transactions")
         } catch (t: Throwable) {
             Log.e("Repo", "refreshTransactions() failed: ${t.message}", t)
         }
     }
 
-    /** Verilen yıl/ay içindeki yalnızca GİDER kayıtları */
+    // Ay bazlı giderler
     fun getMonthlyExpenses(year: Int, month: Int): Flow<List<TransactionEntity>> {
         val zone = ZoneId.systemDefault()
-
-        val startMillis = LocalDate.of(year, month, 1)
+        val start = LocalDate.of(year, month, 1)
             .atStartOfDay(zone).toInstant().toEpochMilli()
-
-        val endMillis = LocalDate.of(year, month, 1)
-            .plusMonths(1)
-            .atStartOfDay(zone).toInstant().toEpochMilli() - 1
-
-        return transactionDao.getExpensesInRange(
-            startMillis = startMillis,
-            endMillis = endMillis,
-            expenseType = CategoryType.EXPENSE
-        )
+        val endExclusive = LocalDate.of(year, month, 1).plusMonths(1)
+            .atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = endExclusive - 1
+        return transactionDao.getExpensesInRange(start, end, CategoryType.EXPENSE)
     }
 }
 
-/* -------------------- DTO → Entity Dönüşümü -------------------- */
-
+// --- Mapping yardımcıları ---
 private fun TransactionDto.toEntityOrNull(): TransactionEntity? {
-    // amount "36000.00" -> kuruş
+    // amount: "36000.00" → 3600000 (kuruş); null ise 0
     val amountCents = try {
         amount?.let {
             BigDecimal(it).multiply(BigDecimal(100))
-                .setScale(0, RoundingMode.HALF_UP)
-                .longValueExact()
+                .setScale(0, RoundingMode.HALF_UP).longValueExact()
         } ?: 0L
     } catch (e: Exception) {
-        Log.w("Repo", "Bad amount: $amount", e)
+        Log.w("Repo", "Bad amount: $amount")
         return null
     }
 
-    // occurred_at ISO-8601 -> epochMillis
+    // occurred_at: ISO-8601 → epochMillis
     val epochMillis = try {
-        OffsetDateTime.parse(occurredAt, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            .toInstant().toEpochMilli()
+        // Saat içermiyorsa LocalDate.parse ile de ele alınabilir,
+        // ancak ISO_OFFSET_DATE_TIME çoğu durumda yeterli.
+        OffsetDateTime.parse(occurredAt).toInstant().toEpochMilli()
     } catch (e: Exception) {
-        Log.w("Repo", "Bad date: $occurredAt", e)
-        return null
+        // Bazı kayıtlar sadece tarih (YYYY-MM-DD) olabilir:
+        try {
+            LocalDate.parse(occurredAt).atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toEpochMilli()
+        } catch (e2: Exception) {
+            Log.w("Repo", "Bad date: $occurredAt")
+            return null
+        }
     }
 
     val txType = if (type.equals("income", ignoreCase = true))
         CategoryType.INCOME else CategoryType.EXPENSE
 
-    // <-- BURASI DÜZELDİ: uuid yerine id kullanıyoruz
-    val uid = (id ?: return null).toString()
-
     return TransactionEntity(
-        uuid = uid,
+        uuid = id.toString(),
         amount = amountCents,
         note = note,
         date = epochMillis,

@@ -36,14 +36,24 @@ object ApiClient {
             .build()
     }
 
-    private val retrofit by lazy {
-        Retrofit.Builder()
-            .baseUrl(ensureSlash(BuildConfig.BASE_URL))
+    @Volatile
+    private var retrofit: Retrofit = buildRetrofit(BuildConfig.BASE_URL)
+
+    private fun buildRetrofit(base: String): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(ensureSlash(base))
             .client(http)
-            .addConverterFactory(ScalarsConverterFactory.create())   // String (ping) için ÖNCE
-            .addConverterFactory(MoshiConverterFactory.create(moshi))// JSON (DTO) için SONRA
+            .addConverterFactory(ScalarsConverterFactory.create())   // String (ping) için önce
+            .addConverterFactory(MoshiConverterFactory.create(moshi))// JSON için sonra
             .build()
     }
 
-    val api: ApiService by lazy { retrofit.create(ApiService::class.java) }
+    // Buradan çağrılar yapılacak
+    val api: ApiService
+        get() = retrofit.create(ApiService::class.java)
+
+    // Dinamik olarak baseUrl güncelle
+    fun updateBaseUrl(newUrl: String) {
+        retrofit = buildRetrofit(newUrl)
+    }
 }

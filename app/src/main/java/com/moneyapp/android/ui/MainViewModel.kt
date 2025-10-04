@@ -4,29 +4,31 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moneyapp.android.data.db.TransactionEntity
 import com.moneyapp.android.data.repository.TransactionRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.LocalDate
 
 class MainViewModel(private val repository: TransactionRepository) : ViewModel() {
 
-    // Arayüzün dinleyeceği transaction listesi için StateFlow
-    private val _transactions = MutableStateFlow<List<TransactionEntity>>(emptyList())
-    val transactions: StateFlow<List<TransactionEntity>> = _transactions.asStateFlow()
+    private val currentMonth = MutableStateFlow(YearMonth.now())
+
+    // Sadece bu ayın giderlerini tutacak StateFlow
+    val monthExpenses: StateFlow<List<TransactionEntity>> =
+        currentMonth
+            .flatMapLatest { ym ->
+                repository.getMonthlyExpenses(ym.year, ym.monthValue)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // ViewModel ilk oluşturulduğunda veritabanından verileri çekmeye başlar
-        fetchTransactions()
+        // Açılışta uzak verileri güncelle
+        viewModelScope.launch { repository.refreshTransactions() }
     }
 
-    private fun fetchTransactions() {
-        // viewModelScope, bu coroutine'in ViewModel yaşadığı sürece aktif olmasını sağlar.
-        // Böylece ekran kapandığında veya uygulama alta alındığında hafıza sızıntısı olmaz.
-        viewModelScope.launch {
-            repository.getAllTransactions().collect { transactionList ->
-                _transactions.value = transactionList
-            }
-        }
+    // Gerekirse Activity’den ay değiştirmek için:
+    fun setMonth(ym: YearMonth) {
+        currentMonth.value = ym
     }
 }

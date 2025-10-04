@@ -1,5 +1,7 @@
 package com.moneyapp.android.ui
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -9,6 +11,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.moneyapp.android.MoneyApp
 import com.moneyapp.android.R
 import kotlinx.coroutines.launch
+
+
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,14 +47,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeTransactions() {
-        // lifecycleScope, bu Activity'nin yaşam döngüsüne bağlı bir Coroutine başlatır.
-        // Activity yok olduğunda bu Coroutine de otomatik olarak iptal edilir.
         lifecycleScope.launch {
-            viewModel.transactions.collect { transactionList ->
-                // Veritabanından yeni bir liste geldiğinde, Adapter'a gönderiyoruz.
-                // Adapter, en verimli şekilde listeyi günceller.
-                transactionAdapter.submitList(transactionList)
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.monthExpenses.collect { list ->
+                    transactionAdapter.submitList(list)
+                }
             }
         }
     }
+
 }

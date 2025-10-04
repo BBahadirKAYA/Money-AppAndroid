@@ -39,21 +39,35 @@ object ApiClient {
     @Volatile
     private var retrofit: Retrofit = buildRetrofit(BuildConfig.BASE_URL)
 
+    @Volatile
+    private var currentBaseUrl: String = ensureSlash(BuildConfig.BASE_URL)
+
     private fun buildRetrofit(base: String): Retrofit {
+        val normalized = ensureSlash(base)
         return Retrofit.Builder()
-            .baseUrl(ensureSlash(base))
+            .baseUrl(normalized)
             .client(http)
-            .addConverterFactory(ScalarsConverterFactory.create())   // String (ping) için önce
-            .addConverterFactory(MoshiConverterFactory.create(moshi))// JSON için sonra
+            .addConverterFactory(ScalarsConverterFactory.create())      // String (ping) için önce
+            .addConverterFactory(MoshiConverterFactory.create(moshi))   // JSON için sonra
             .build()
     }
 
-    // Buradan çağrılar yapılacak
+    // Dışarıya servis
     val api: ApiService
         get() = retrofit.create(ApiService::class.java)
 
-    // Dinamik olarak baseUrl güncelle
+    /**
+     * Dinamik olarak baseUrl güncelle.
+     * - Aynı URL gelirse hiçbir şey yapmaz.
+     * - Farklıysa thread-safe şekilde Retrofit'i yeniden kurar.
+     */
     fun updateBaseUrl(newUrl: String) {
-        retrofit = buildRetrofit(newUrl)
+        val normalized = ensureSlash(newUrl)
+        if (normalized == currentBaseUrl) return
+        synchronized(this) {
+            if (normalized == currentBaseUrl) return
+            retrofit = buildRetrofit(normalized)
+            currentBaseUrl = normalized
+        }
     }
 }

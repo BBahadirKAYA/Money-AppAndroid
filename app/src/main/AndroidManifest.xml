@@ -24,7 +24,7 @@
 
         <!-- Test ekranı: launcher değil -->
         <activity
-            android:name=".TestDbActivity"
+            android:name=".ui.TestDbActivity"
             android:exported="false" />
     </application>
 </manifest>

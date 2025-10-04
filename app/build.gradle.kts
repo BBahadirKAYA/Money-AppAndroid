@@ -56,18 +56,17 @@ dependencies {
     // Retrofit + dönüştürücüler
     implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
     implementation("com.squareup.retrofit2:converter-scalars:$retrofitVersion")
-    implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion")
     implementation("com.squareup.retrofit2:converter-moshi:$retrofitVersion")
 
     // Moshi (kullanacaksan)
     implementation("com.squareup.moshi:moshi:$moshiVersion")
-    implementation("com.squareup.moshi:moshi-kotlin:1.15.1") // <-- BUNU EKLE
+    implementation("com.squareup.moshi:moshi-kotlin:${moshiVersion}")
     // ksp("com.squareup.moshi:moshi-kotlin-codegen:$moshiVersion")
 
     // OkHttp
     implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
     // ⚠️ release derlemede de erişilsin diye implementation kullandık:
-    implementation("com.squareup.okhttp3:logging-interceptor:$okhttpVersion")
+    debugImplementation("com.squareup.okhttp3:logging-interceptor:$okhttpVersion")
 
     // AndroidX
     implementation("androidx.core:core-ktx:1.13.1")

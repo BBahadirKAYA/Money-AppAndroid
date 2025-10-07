@@ -1,0 +1,7 @@
+# Fill these locally (do NOT commit real values)
+SHEET_WEBHOOK_URL=https://script.google.com/macros/s/REPLACE_ME/exec
+APK_PUBLISH_URL=http://127.0.0.1:8000/app-debug.apk
+
+# Recommended Gradle flags
+org.gradle.configureondemand=false
+org.gradle.configuration-cache=false

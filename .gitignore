@@ -57,3 +57,5 @@ misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
 
+# local-only; DO NOT COMMIT
+gradle.properties

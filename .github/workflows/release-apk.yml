@@ -34,7 +34,7 @@ jobs:
       # 2) İmzalı debug APK
       - name: Build debug APK
         env:
-          SIGNING_STORE_FILE: app/moneyapp-shared-debug.jks
+          SIGNING_STORE_FILE: moneyapp-shared-debug.jks
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}

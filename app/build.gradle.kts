@@ -7,7 +7,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-// NOT: ApkVariantOutput import'u artık gerekmiyor (post-build rename kullanıyoruz)
+// NOT: ApkVariantOutput import'u gerekmiyor (post-build rename kullanıyoruz)
 
 plugins {
     id("com.android.application")
@@ -26,7 +26,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // ---- versionName / versionCode (dinamik) ----
-        val vn = "1.3.7"                     // tek kaynak (burayı değiştir)
+        val vn = "1.3.8"                     // tek kaynak (burayı değiştir)
         versionName = vn
         val base = vn.replace(".", "").toIntOrNull() ?: 0
         val stamp = LocalDateTime.now(ZoneId.of("Europe/Istanbul"))
@@ -44,9 +44,8 @@ android {
         )
     }
 
-    // buildTypes tek blok
     buildTypes {
-        getByName("debug") { /* debug'a özel ayarlar gerekiyorsa ekle */ }
+        getByName("debug") { /* debug'a özel ayar gerekiyorsa ekle */ }
         getByName("release") { isMinifyEnabled = false }
     }
 
@@ -127,13 +126,16 @@ val postVersionToSheet by tasks.registering {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // APK dosyasını derleme SONRASI versiyon + tarih ile yeniden adlandır (copy)
+// ve publish görevini oluştur
 // ──────────────────────────────────────────────────────────────────────────────
 fun registerRenameApkTask(buildType: String) {
     val cap = buildType.replaceFirstChar { it.uppercase() }
-    val taskName = "rename${cap}Apk"
+    val renameTaskName = "rename${cap}Apk"
+    val publishTaskName = "publish${cap}Apk"
 
-    tasks.register(taskName) {
-        dependsOn("assemble$cap") // önce APK üretilir
+    // rename<Cap>Apk
+    tasks.register(renameTaskName) {
+        dependsOn("assemble$cap")
         doLast {
             val vn = android.defaultConfig.versionName ?: "0.0.0"
             val vc = android.defaultConfig.versionCode ?: 0
@@ -153,31 +155,40 @@ fun registerRenameApkTask(buildType: String) {
             println("Saved → ${dest.absolutePath}")
         }
     }
-// assemble<BuildType> görevi yaratıldıktan SONRA finalizer ekle
+
+    // assemble<Cap> tamamlanınca finalize et (opsiyonel ama hoş)
     gradle.projectsEvaluated {
         tasks.matching { it.name == "assemble$cap" }.configureEach {
-            finalizedBy(taskName)
+            finalizedBy(renameTaskName)
         }
     }
-// Publish: rename → post (rename başarısızsa post çalışmaz)
-    tasks.register("publish${cap}Apk") {
-        dependsOn(taskName, postVersionToSheet)
-    }
-    postVersionToSheet.configure {
-        mustRunAfter(taskName)
+
+    // publish<Cap>Apk : rename → post
+    tasks.register(publishTaskName) {
+        dependsOn(renameTaskName, postVersionToSheet)
     }
 
+    // postVersionToSheet mutlaka rename'den sonra koşsun
+    postVersionToSheet.configure {
+        mustRunAfter(renameTaskName)
+    }
 }
 
-// Debug ve Release için kaydet
+// Debug ve Release için kur
 registerRenameApkTask("debug")
 registerRenameApkTask("release")
 
-// Tek komutta uçtan uca (debug) çalıştırmak için yardımcı task
-tasks.register("buildDebugAndPost") {
-    dependsOn("renameDebugApk")  // assembleDebug → renameDebugApk → postVersionToSheet
+// Tek komutta uçtan uca (debug) çalıştırmak için yardımcı task (tekil tanım)
+if (tasks.findByName("buildDebugAndPost") == null) {
+    tasks.register("buildDebugAndPost") {
+        // zincir: assembleDebug → renameDebugApk → postVersionToSheet
+        dependsOn("publishDebugApk")
+    }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
 // sürümler
+// ──────────────────────────────────────────────────────────────────────────────
 val roomVersion = "2.6.1"
 val okhttpVersion = "4.12.0"
 val retrofitVersion = "2.11.0"
@@ -195,11 +206,11 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.fragment:fragment-ktx:1.8.3")
 
-    // Lifecycle (repeatOnLifecycle, viewModelScope için)
+    // Lifecycle
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycleVersion")
 
-    // Material 3 (tema ve renk attr’ları için)
+    // Material 3
     implementation("com.google.android.material:material:1.12.0")
 
     // Retrofit + dönüştürücüler
@@ -211,7 +222,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
     implementation("com.squareup.okhttp3:logging-interceptor:$okhttpVersion")
 
-    // Moshi (Json annotation ve kotlin refleksiyon desteği için)
+    // Moshi
     implementation("com.squareup.moshi:moshi:$moshiVersion")
     implementation("com.squareup.moshi:moshi-kotlin:$moshiVersion")
 
@@ -220,9 +231,8 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 
-    // Test (istersen)
+    // Test
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }
-

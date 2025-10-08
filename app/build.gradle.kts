@@ -18,6 +18,15 @@ plugins {
 android {
     namespace = "com.moneyapp.android"
     compileSdk = 36
+    signingConfigs {
+        create("sharedDebug") {
+            val store = System.getenv("SIGNING_STORE_FILE") ?: "moneyapp-shared-debug.jks"
+            storeFile = file(store)
+            storePassword = System.getenv("SIGNING_STORE_PASSWORD") ?: "SIFRE"
+            keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "moneyapp"
+            keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: "SIFRE"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.moneyapp.android"
@@ -26,7 +35,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // ---- versionName / versionCode (dinamik) ----
-        val vn = "1.3.8"                     // tek kaynak (burayı değiştir)
+        val vn = "1.3.10"                     // tek kaynak (burayı değiştir)
         versionName = vn
         val base = vn.replace(".", "").toIntOrNull() ?: 0
         val stamp = LocalDateTime.now(ZoneId.of("Europe/Istanbul"))
@@ -45,9 +54,16 @@ android {
     }
 
     buildTypes {
-        getByName("debug") { /* debug'a özel ayar gerekiyorsa ekle */ }
-        getByName("release") { isMinifyEnabled = false }
+        getByName("debug") {
+            // debug'a özel ayarların varsa kalsın
+            signingConfig = signingConfigs.getByName("sharedDebug")
+        }
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("sharedDebug")
+        }
     }
+
 
     buildFeatures {
         viewBinding = true

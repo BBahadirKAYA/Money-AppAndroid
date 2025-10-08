@@ -3,7 +3,6 @@ package com.moneyapp.android
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
-
 import android.app.Application
 import android.util.Log
 import com.moneyapp.android.data.Prefs
@@ -51,6 +50,7 @@ class MoneyApp : Application() {
                     .build()
 
 
+
                 val configService = configRetrofit.create(ConfigService::class.java)
                 val resp = configService.getBaseUrlConfig()
                 val newBaseUrl = resp.base_url?.trim()
@@ -79,4 +79,6 @@ class MoneyApp : Application() {
             }
         }
     }
+
 }
+

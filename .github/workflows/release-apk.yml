@@ -1,15 +1,15 @@
-name: Build & Release APK + Sheet webhook
+name: Build & Release APK + Sheet webhook (minimal)
 
 on:
   push:
-    tags: ['v*']          # v1.2.3 gibi
-  workflow_dispatch: {}   # elle de çalıştırılabilir
+    tags: ['v*']    # v1.3.10 gibi
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,26 +19,32 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v3
+      - name: Gradle cache
+        uses: gradle/gradle-build-action@v3
+        with:
+          cache-read-only: true
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      # Debug APK üret
       - name: Build debug APK
-        run: ./gradlew clean :app:assembleDebug
+        run: ./gradlew -q :app:assembleDebug
 
-      - name: Locate & rename APK
+      # APK'yı bul, sabit isimle kopyala
+      - name: Locate APK
         id: apk
         shell: bash
         run: |
           set -euo pipefail
-          APK_PATH="$(ls app/build/outputs/apk/debug/*.apk | sort -r | head -n1)"
-          [ -n "$APK_PATH" ]
-          TAG="${GITHUB_REF_NAME:-manual-${GITHUB_RUN_NUMBER}}"
+          APK_PATH=$(ls app/build/outputs/apk/debug/*.apk | head -n1)
+          [[ -n "$APK_PATH" ]]
+          TAG="${GITHUB_REF_NAME:-dev}"
           APK_NAME="MoneyAppAndroid-${TAG}-debug.apk"
           cp "$APK_PATH" "$APK_NAME"
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
 
+      # GitHub Release oluştur ve APK'yı yükle
       - name: Create GitHub Release & upload asset
         uses: softprops/action-gh-release@v2
         with:
@@ -48,48 +54,36 @@ jobs:
           draft: false
           prerelease: false
 
+      # Release'teki .apk için public URL oluştur
       - name: Build APK public URL
         id: url
-        shell: bash
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME:-manual-${GITHUB_RUN_NUMBER}}"
+          TAG="${GITHUB_REF_NAME:-dev}"
           NAME="${{ steps.apk.outputs.apk_name }}"
           echo "apk_url=https://github.com/${{ github.repository }}/releases/download/${TAG}/${NAME}" >> "$GITHUB_OUTPUT"
 
+      # Gradle'dan versionName & versionCode oku
       - name: Read version from Gradle
         id: ver
-        shell: bash
         run: |
           set -euo pipefail
-          OUT="$(./gradlew -q :app:printVersionInfo)"
+          OUT=$(./gradlew -q :app:printVersionInfo)
           echo "$OUT"
-          VC="$(echo "$OUT" | sed -n 's/^VERSION_CODE=\(.*\)$/\1/p')"
-          VN="$(echo "$OUT" | sed -n 's/^VERSION_NAME=\(.*\)$/\1/p')"
-          [ -n "$VC" ] && [ -n "$VN" ]
+          VC=$(echo "$OUT" | sed -n 's/^VERSION_CODE=\(.*\)$/\1/p')
+          VN=$(echo "$OUT" | sed -n 's/^VERSION_NAME=\(.*\)$/\1/p')
+          [[ -n "$VC" && -n "$VN" ]]
           echo "version_code=$VC" >> "$GITHUB_OUTPUT"
           echo "version_name=$VN" >> "$GITHUB_OUTPUT"
 
-      - name: POST to Google Sheets
-        env:
-          WEBAPP_URL:   ${{ secrets.SHEET_WEBHOOK_URL }}
-          APK_URL:      ${{ steps.url.outputs.apk_url }}
-          VERSION_CODE: ${{ steps.ver.outputs.version_code }}
-          VERSION_NAME: ${{ steps.ver.outputs.version_name }}
-        shell: bash
+      # Google Sheets Apps Script webhook'una POST et
+      - name: POST to Google Sheets webhook
         run: |
           set -euo pipefail
-          if [ -z "${WEBAPP_URL:-}" ]; then
-            echo "SHEET_WEBHOOK_URL secret'ını ayarlayın." >&2
-            exit 1
-          fi
-          JSON=$(jq -n \
-            --arg vc  "$VERSION_CODE" \
-            --arg vn  "$VERSION_NAME" \
-            --arg url "$APK_URL" \
-            '{version_code: ($vc|tonumber), version_name: $vn, asset_url: $url, versionCode: ($vc|tonumber), versionName: $vn, apkUrl: $url}')
-          echo "$JSON" | jq .
-          curl --fail --retry 3 --retry-delay 2 \
-               -H "Content-Type: application/json" \
-               -d "$JSON" \
-               "$WEBAPP_URL"
+          WEBAPP="https://script.google.com/macros/s/AKfycby8G4L4UhT2lutb1jyV8n8fX99_tIxsdDSGCdIt1ONHObpCLI51_tHQ-PBeT4mdpcrX/exec"
+          VC="${{ steps.ver.outputs.version_code }}"
+          VN="${{ steps.ver.outputs.version_name }}"
+          APK_URL="${{ steps.url.outputs.apk_url }}"
+          JSON=$(printf '{"version_code":%s,"versionCode":%s,"version_name":"%s","versionName":"%s","apkUrl":"%s","asset_url":"%s"}' "$VC" "$VC" "$VN" "$VN" "$APK_URL" "$APK_URL")
+          echo "$JSON"
+          curl -sS -L -H "Content-Type: application/json" -d "$JSON" "$WEBAPP"

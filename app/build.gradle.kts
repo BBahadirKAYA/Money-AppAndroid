@@ -20,13 +20,18 @@ android {
     compileSdk = 36
     signingConfigs {
         create("sharedDebug") {
-            val store = System.getenv("SIGNING_STORE_FILE") ?: "moneyapp-shared-debug.jks"
-            storeFile = file(store)
-            storePassword = System.getenv("SIGNING_STORE_PASSWORD") ?: "SIFRE"
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "moneyapp"
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: "SIFRE"
+            storeFile = file(System.getenv("SIGNING_STORE_FILE") ?: "moneyapp-shared-debug.jks")
+            storePassword = System.getenv("SIGNING_STORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: ""
         }
     }
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("sharedDebug")
+        }
+    }
+
 
     defaultConfig {
         applicationId = "com.moneyapp.android"

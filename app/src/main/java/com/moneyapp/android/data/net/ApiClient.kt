@@ -61,13 +61,12 @@ object ApiClient {
      * - Aynı URL gelirse hiçbir şey yapmaz.
      * - Farklıysa thread-safe şekilde Retrofit'i yeniden kurar.
      */
+    @Synchronized
     fun updateBaseUrl(newUrl: String) {
         val normalized = ensureSlash(newUrl)
-        if (normalized == currentBaseUrl) return
-        synchronized(this) {
-            if (normalized == currentBaseUrl) return
-            retrofit = buildRetrofit(normalized)
-            currentBaseUrl = normalized
-        }
+        if (normalized == currentBaseUrl && retrofit != null) return
+        retrofit = buildRetrofit(normalized)
+        currentBaseUrl = normalized
     }
+
 }

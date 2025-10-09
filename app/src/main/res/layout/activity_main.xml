@@ -13,6 +13,16 @@
         android:layout_margin="16dp"
         android:text="Yeni Transaction Ekle (Offline)" />
 
+    <!-- Yeni: Güncellemeyi kontrol et butonu -->
+    <Button
+        android:id="@+id/btnCheckUpdate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="Güncellemeyi kontrol et" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_transactions"
         android:layout_width="match_parent"

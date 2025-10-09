@@ -12,8 +12,9 @@ import com.moneyapp.android.MoneyApp
 import com.moneyapp.android.R
 import kotlinx.coroutines.launch
 
-
-
+// ↓ Eklenen importlar
+import android.widget.Button
+import com.moneyapp.android.update.UpdateChecker
 
 class MainActivity : AppCompatActivity() {
 
@@ -35,6 +36,13 @@ class MainActivity : AppCompatActivity() {
 
         // 4. ViewModel'den gelen veri akışını dinleyip listeyi güncelliyoruz
         observeTransactions()
+
+        // 5. Güncelleme kontrol butonu (activity_main.xml'deki btnCheckUpdate)
+        findViewById<Button>(R.id.btnCheckUpdate)?.setOnClickListener {
+            lifecycleScope.launch {
+                UpdateChecker.check(this@MainActivity)
+            }
+        }
     }
 
     private fun setupRecyclerView() {
@@ -55,5 +63,4 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
 }

@@ -2,11 +2,15 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.time.LocalDateTime as JLocalDateTime
+import java.time.ZoneId as JZoneId
+import java.time.format.DateTimeFormatter as JDateTimeFormatter
+
+
+
+
 // NOT: ApkVariantOutput import'u gerekmiyor (post-build rename kullanıyoruz)
 
 plugins {
@@ -18,21 +22,23 @@ plugins {
 android {
     namespace = "com.moneyapp.android"
     compileSdk = 36
+
+    // --- DEBUG keystore'u opsiyonel yap ---
+    val hasSharedDebug = listOf(
+        "SIGNING_STORE_FILE", "SIGNING_STORE_PASSWORD", "SIGNING_KEY_ALIAS", "SIGNING_KEY_PASSWORD"
+    ).all { !System.getenv(it).isNullOrBlank() }
+
     signingConfigs {
-        create("sharedDebug") {
-            storeFile = file(System.getenv("SIGNING_STORE_FILE") ?: "moneyapp-shared-debug.jks")
-
-            storePassword = System.getenv("SIGNING_STORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: ""
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: ""
+        if (hasSharedDebug) {
+            create("sharedDebug") {
+                storeFile = file(System.getenv("SIGNING_STORE_FILE"))
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
         }
+        // release için ayrı bir config istersen burada create("release") ile tanımlayabilirsin
     }
-    buildTypes {
-        getByName("debug") {
-            signingConfig = signingConfigs.getByName("sharedDebug")
-        }
-    }
-
 
     defaultConfig {
         applicationId = "com.moneyapp.android"
@@ -40,48 +46,50 @@ android {
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // ---- versionName / versionCode (dinamik) ----
-        val vn = "1.3.10"                     // tek kaynak (burayı değiştir)
-        versionName = vn
-        val base = vn.replace(".", "").toIntOrNull() ?: 0
-        val stamp = LocalDateTime.now(ZoneId.of("Europe/Istanbul"))
-            .format(DateTimeFormatter.ofPattern("yyMMddHH"))
-            .toInt()
-        versionCode = base * 100_000 + stamp
+        // --- VERSION_NAME / VERSION_CODE: -P ile gelirse onları kullan ---
+        val vnProp = (project.findProperty("VERSION_NAME") as String?)
+        val vcProp = (project.findProperty("VERSION_CODE") as String?)?.toIntOrNull()
 
-        // ---- BuildConfig.BASE_URL (her varyantta mevcut) ----
+        // Varsayılan (elle geliştirme sırasında) değer
+        val vn = vnProp ?: "1.3.10"
+        versionName = vn
+
+        // Otomatik versionCode (timestamp) — ancak -PVERSION_CODE verilmişse onu kullan
+        val base = vn.replace(".", "").toIntOrNull() ?: 0
+        val stamp = JLocalDateTime.now(JZoneId.of("Europe/Istanbul"))
+            .format(JDateTimeFormatter.ofPattern("yyMMddHH"))
+            .toInt()
+        versionCode = vcProp ?: (base * 100_000 + stamp)
+
+        // ---- BuildConfig.BASE_URL ----
         val backendUrl: String =
             (project.findProperty("BASE_URL") as String?) ?: "http://10.0.2.2:8000/"
-        buildConfigField(
-            type = "String",
-            name = "BASE_URL",
-            value = "\"$backendUrl\""      // çift tırnak ÖNEMLİ
-        )
+        buildConfigField("String", "BASE_URL", "\"$backendUrl\"")
     }
 
+
+    // --- buildTypes: tek blok, şartlı imzalama ---
     buildTypes {
         getByName("debug") {
-            // debug'a özel ayarların varsa kalsın
-            signingConfig = signingConfigs.getByName("sharedDebug")
+            if (hasSharedDebug) {
+                signingConfig = signingConfigs.getByName("sharedDebug")
+            } // else: Android'in default debug.keystore'u kullanılacak
         }
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("sharedDebug")
+            // Geçici olarak aynı imzayı istiyorsan ve env doluysa:
+            if (hasSharedDebug) {
+                signingConfig = signingConfigs.getByName("sharedDebug")
+            }
+            // Not: Mağaza dağıtımı hedefliyorsan release için ayrı bir keystore tanımla.
         }
     }
 
-
-    buildFeatures {
-        viewBinding = true
-        buildConfig = true
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+    buildFeatures { viewBinding = true; buildConfig = true }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
+
 
 // ---- Version bilgisini yazdıran yardımcı task ----
 tasks.register("printVersionInfo") {
@@ -161,8 +169,9 @@ fun registerRenameApkTask(buildType: String) {
         doLast {
             val vn = android.defaultConfig.versionName ?: "0.0.0"
             val vc = android.defaultConfig.versionCode ?: 0
-            val ts = LocalDateTime.now(ZoneId.of("Europe/Istanbul"))
-                .format(DateTimeFormatter.ofPattern("yyMMddHH"))
+            val ts = JLocalDateTime.now(JZoneId.of("Europe/Istanbul"))
+                .format(JDateTimeFormatter.ofPattern("yyMMddHH"))
+
 
             val outDir = layout.buildDirectory.dir("outputs/apk/$buildType").get().asFile
             require(outDir.exists()) { "APK dizini bulunamadı: $outDir" }
@@ -218,6 +227,9 @@ val moshiVersion = "1.15.1"
 val lifecycleVersion = "2.8.6"
 
 dependencies {
+    implementation(project(":update-helper"))
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6") // lifecycleScope için
+
     // Kotlin
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.0.20"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")

@@ -7,3 +7,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "MoneyAppAndroid"
 include(":app")
+include(":update-helper")

@@ -59,3 +59,5 @@ render.experimental.xml
 
 # local-only; DO NOT COMMIT
 gradle.properties
+.env
+keystore.jks.b64

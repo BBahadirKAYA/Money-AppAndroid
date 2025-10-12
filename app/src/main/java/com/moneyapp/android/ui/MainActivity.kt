@@ -40,7 +40,7 @@ class MainActivity : AppCompatActivity() {
         // 5. Güncelleme kontrol butonu (activity_main.xml'deki btnCheckUpdate)
         findViewById<Button>(R.id.btnCheckUpdate)?.setOnClickListener {
             lifecycleScope.launch {
-                UpdateChecker.check(this@MainActivity)
+                UpdateChecker.checkAndPrompt(this@MainActivity)
             }
         }
     }

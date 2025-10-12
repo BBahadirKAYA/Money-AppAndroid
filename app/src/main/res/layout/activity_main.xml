@@ -6,12 +6,7 @@
     android:orientation="vertical"
     tools:context=".ui.MainActivity">
 
-    <Button
-        android:id="@+id/btnAdd"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="Yeni Transaction Ekle (Offline)" />
+
 
     <!-- Yeni: Güncellemeyi kontrol et butonu -->
     <Button

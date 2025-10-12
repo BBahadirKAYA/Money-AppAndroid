@@ -45,27 +45,47 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+// ---- BuildConfig.UPDATE_MANIFEST_URL ----
+        val updateManifest = (project.findProperty("UPDATE_MANIFEST_URL") as String?
+            ?: "https://raw.githubusercontent.com/BBahadirKAYA/Money-AppAndroid/main/update-helper/update.json")
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$updateManifest\"")
 
-        // --- VERSION_NAME / VERSION_CODE: -P ile gelirse onları kullan ---
-        val vnProp = (project.findProperty("VERSION_NAME") as String?)
-        val vcProp = (project.findProperty("VERSION_CODE") as String?)?.toIntOrNull()
+        // --- 1) ENV oku ---
+        val envVName = System.getenv("VNAME") ?: System.getenv("VERSION_NAME")
+        val envVCode = System.getenv("VCODE") ?: System.getenv("VERSION_CODE")
 
-        // Varsayılan (elle geliştirme sırasında) değer
-        val vn = vnProp ?: "1.3.10"
-        versionName = vn
+        // --- 2) .env dosyasından oku (Studio için) ---
+        fun loadDotEnv(key: String): String? {
+            val f = rootProject.file(".env")
+            if (!f.exists()) return null
+            // basit KEY=VALUE parser (yorum/satırsonu kırpma)
+            val line = f.readLines()
+                .firstOrNull { it.trim().isNotEmpty() && !it.trim().startsWith("#") && it.startsWith("$key=") }
+                ?: return null
+            return line.substringAfter("=").trim().trim('"', '\'')
+        }
+        val fileVName = loadDotEnv("VNAME") ?: loadDotEnv("VERSION_NAME")
+        val fileVCode = loadDotEnv("VCODE") ?: loadDotEnv("VERSION_CODE")
 
-        // Otomatik versionCode (timestamp) — ancak -PVERSION_CODE verilmişse onu kullan
-        val base = vn.replace(".", "").toIntOrNull() ?: 0
-        val stamp = JLocalDateTime.now(JZoneId.of("Europe/Istanbul"))
-            .format(JDateTimeFormatter.ofPattern("yyMMddHH"))
-            .toInt()
-        versionCode = vcProp ?: (base * 100_000 + stamp)
+        // --- 3) -P (yedek) ---
+        val propVName = project.findProperty("VERSION_NAME") as String?
+        val propVCode = project.findProperty("VERSION_CODE") as String?
 
-        // ---- BuildConfig.BASE_URL ----
-        val backendUrl: String =
-            (project.findProperty("BASE_URL") as String?) ?: "http://10.0.2.2:8000/"
+        // --- 4) Öncelik: ENV > .env > -P ---
+        val vName = (envVName ?: fileVName ?: propVName)
+            ?: throw GradleException("VERSION_NAME/VNAME tanımlı değil (ENV/.env veya -P ile ver).")
+        val vCode = (envVCode ?: fileVCode ?: propVCode)?.toIntOrNull()
+            ?: throw GradleException("VERSION_CODE/VCODE tanımlı değil veya int değil (ENV/.env veya -P ile ver).")
+
+        versionName = vName
+        versionCode = vCode
+
+        // BASE_URL
+        val backendUrl = (project.findProperty("BASE_URL") as String?) ?: "http://10.0.2.2:8000/"
         buildConfigField("String", "BASE_URL", "\"$backendUrl\"")
     }
+
+
 
 
     // --- buildTypes: tek blok, şartlı imzalama ---
@@ -88,6 +108,22 @@ android {
     buildFeatures { viewBinding = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
+    packaging {
+        jniLibs {
+            // Eski “merge native libs” davranışı; çoğu çakışmayı bypass eder
+            useLegacyPackaging = true
+            // Yaygın çakışma: birden fazla libc++_shared.so
+            pickFirsts += listOf("**/libc++_shared.so")
+        }
+        resources {
+            // Lisans dosyası çakışmaları (zararsız) dursun
+            excludes += listOf(
+                "META-INF/LICENSE*",
+                "META-INF/AL2.0",
+                "META-INF/LGPL2.1"
+            )
+        }
+    }
 }
 
 
@@ -269,4 +305,14 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    // Eski transitifleri ez: (Material/AppCompat ile uyumlu modern sürümler)
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
+    implementation("androidx.coordinatorlayout:coordinatorlayout:1.2.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.fragment:fragment-ktx:1.8.3")
+    implementation("androidx.emoji2:emoji2:1.4.0")
+
 }

@@ -62,7 +62,7 @@ object UpdateChecker {
     // Varsayılan: BuildConfig üzerinden; yoksa (geriye uyum için) eski Apps Script adresi
     private val DEFAULT_URL: String by lazy {
         val manifest = try { BuildConfig.UPDATE_MANIFEST_URL } catch (_: Throwable) { "" }
-        if (manifest.isNullOrBlank()) {
+        if (manifest.isBlank()) {
             "https://script.google.com/macros/s/AKfycby8G4L4UhT2lutb1jyV8n8fX99_tIxsdDSGCdIt1ONHObpCLI51_tHQ-PBeT4mdpcrX/exec"
         } else manifest
     }
@@ -79,7 +79,6 @@ object UpdateChecker {
             .readTimeout(12, TimeUnit.SECONDS)
             .addInterceptor(
                 HttpLoggingInterceptor().apply {
-                    // DEBUG’de gövdeleri gör, release’de kapalı kalsın
                     level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
                     else HttpLoggingInterceptor.Level.NONE
                 }
@@ -117,58 +116,73 @@ object UpdateChecker {
                     .show()
             }
             is UpdateResult.UpToDate -> withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Güncel sürümü kullanıyorsun (${result.current}).",
-                    Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Güncel sürümü kullanıyorsun (${result.current}).",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
             is UpdateResult.Error -> withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Güncelleme kontrolü başarısız: ${result.message}",
-                    Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    "Güncelleme kontrolü başarısız: ${result.message}",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
 
-    /** İş mantığı: URL’den oku → modern parse dene → legacy parse fallback → karşılaştır */
+    /** İş mantığı: URL’den oku → modern parse dene (heuristic) → legacy parse → karşılaştır */
     private fun check(manifestUrl: String): UpdateResult = try {
         val req = Request.Builder()
             .url(manifestUrl)
             .header("Accept", "application/json")
             .header("User-Agent", "MoneyAppAndroid/${BuildConfig.VERSION_NAME}")
             .build()
-        Log.d("Update", "Manifest URL = $manifestUrl")
+
+        Log.d("Update", "GET $manifestUrl")
+
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return UpdateResult.Error("HTTP ${resp.code}")
-            val body = resp.body?.string().orEmpty()
-            if (body.isBlank()) return UpdateResult.Error("Boş yanıt")
 
-            // Önce modern formatı dene
-            modernAdapter.fromJson(body)?.let { m ->
+            val bodyStr = resp.body?.string().orEmpty()
+            if (bodyStr.isBlank()) return UpdateResult.Error("Boş yanıt")
+
+            // --- Modern formatı SADECE kritik alanlar varsa kullan ---
+            modernAdapter.fromJson(bodyStr)?.let { m ->
                 val latest = m.latest?.trim().orEmpty()
                 val url = m.url?.trim().orEmpty()
                 val changelog = m.changelog
-                val current = BuildConfig.VERSION_NAME
-                val mandatory = m.minSupported?.let { isNewer(it, current) } == true
-                val hasUpdate = latest.isNotBlank() && isNewer(latest, current)
+                val looksModern = latest.isNotBlank() || url.isNotBlank()
+                Log.d("Update", "looksModern=$looksModern latest='$latest' urlPresent=${url.isNotBlank()}")
 
-                return when {
-                    mandatory -> UpdateResult.Available(latest.ifBlank { "?" }, url, changelog, true)
-                    hasUpdate -> UpdateResult.Available(latest, url, changelog, false)
-                    else -> UpdateResult.UpToDate(current)
+                if (looksModern) {
+                    val current = BuildConfig.VERSION_NAME
+                    val mandatory = m.minSupported?.let { isNewer(it, current) } == true
+                    val hasUpdate = latest.isNotBlank() && isNewer(latest, current)
+
+                    return when {
+                        mandatory -> UpdateResult.Available(latest.ifBlank { "?" }, url, changelog, true)
+                        hasUpdate -> UpdateResult.Available(latest, url, changelog, false)
+                        else -> UpdateResult.UpToDate(current)
+                    }
                 }
             }
 
-            // Fallback: legacy format
-            legacyAdapter.fromJson(body)?.let { r ->
+            // --- Legacy format (sadece versionCode/versionName/apkUrl) ---
+            legacyAdapter.fromJson(bodyStr)?.let { r ->
                 val remoteVc = r.versionCode ?: -1
                 val remoteVn = r.versionName ?: ""
                 val url = r.apkUrl.orEmpty()
                 val localVc = BuildConfig.VERSION_CODE
                 val localVn = BuildConfig.VERSION_NAME
+                Log.d("Update", "legacy: remoteVc=$remoteVc localVc=$localVc")
 
                 val hasByCode = remoteVc > localVc
                 val hasByName = remoteVn.isNotBlank() && isNewer(remoteVn, localVn)
                 return if (hasByCode || hasByName) {
                     UpdateResult.Available(
-                        latest = if (remoteVn.isNotBlank()) remoteVn else "v$remoteVc",
+                        latest = remoteVn.ifBlank { "v$remoteVc" },
                         url = url,
                         changelog = null,
                         mandatory = false

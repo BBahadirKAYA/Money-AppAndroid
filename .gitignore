@@ -61,3 +61,5 @@ render.experimental.xml
 gradle.properties
 .env
 keystore.jks.b64
+dist/
+*.idsig

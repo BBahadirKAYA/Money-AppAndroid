@@ -3,7 +3,6 @@ package com.moneyapp.android.update
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -16,6 +15,20 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.TimeUnit
+
+/**
+ * Uzak manifest örnekleri:
+ * 1) Legacy (sadece release info)
+ *   {"versionCode":7,"versionName":"1.0.7","apkUrl":"https://.../app-release.apk"}
+ *
+ * 2) Modern (zorunlu güncelleme + changelog)
+ *   {
+ *     "latest": "1.0.7",
+ *     "minSupported": "1.0.0",
+ *     "url": "https://.../app-release.apk",
+ *     "changelog": "Performans iyileştirmeleri"
+ *   }
+ */
 
 @JsonClass(generateAdapter = true)
 data class LegacyReleaseInfo(
@@ -45,33 +58,13 @@ sealed class UpdateResult {
 
 object UpdateChecker {
 
-    // App'in BuildConfig'inden (reflection) UPDATE_MANIFEST_URL almaya çalış;
-    // yoksa GitHub raw fallback'ı kullan.
-    private fun defaultManifestUrl(ctx: Context): String {
-        return try {
-            val bc = Class.forName("${ctx.packageName}.BuildConfig")
-            val f = bc.getDeclaredField("UPDATE_MANIFEST_URL")
-            (f.get(null) as? String)?.takeIf { it.isNotBlank() }
-        } catch (_: Throwable) {
-            null
-        } ?: "https://raw.githubusercontent.com/BBahadirKAYA/Money-AppAndroid/main/update-helper/update.json"
-    }
+    /** Varsayılan manifest adresi (BuildConfig’a bağlı değil) */
+    private const val DEFAULT_URL =
+        "https://raw.githubusercontent.com/BBahadirKAYA/Money-AppAndroid/main/update-helper/update.json"
 
-    // Uygulamanın mevcut sürümü (modül bağımsız)
-    private fun currentVersion(ctx: Context): Pair<String, Int> {
-        val pm = ctx.packageManager
-        val pkg = ctx.packageName
-        val pi = pm.getPackageInfo(pkg, 0)
-        val vn = pi.versionName ?: "0.0.0"
-        val vc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            (pi.longVersionCode and 0x7FFF_FFFFL).toInt()
-        } else {
-            @Suppress("DEPRECATION") pi.versionCode
-        }
-        return vn to vc
-    }
-
-    private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    private val moshi = Moshi.Builder()
+        .add(KotlinJsonAdapterFactory())
+        .build()
     private val legacyAdapter = moshi.adapter(LegacyReleaseInfo::class.java)
     private val modernAdapter = moshi.adapter(ModernManifest::class.java)
 
@@ -79,26 +72,34 @@ object UpdateChecker {
         OkHttpClient.Builder()
             .connectTimeout(12, TimeUnit.SECONDS)
             .readTimeout(12, TimeUnit.SECONDS)
-            .addInterceptor(HttpLoggingInterceptor().apply {
-                // release'de sessiz, debug'da temel log
-                level = if (Build.TYPE == "user") HttpLoggingInterceptor.Level.NONE
-                else HttpLoggingInterceptor.Level.BASIC
-            })
+            .addInterceptor(
+                HttpLoggingInterceptor().apply {
+                    // İstersen BASIC bırak; release’te de çok konuşmaz.
+                    level = HttpLoggingInterceptor.Level.BASIC
+                }
+            )
             .followRedirects(true)
             .build()
     }
 
-    /** UI’dan çağır:
-     *  lifecycleScope.launch { UpdateChecker.checkAndPrompt(this@MainActivity) }
-     */
+    /** App versiyonunu Context’ten al (BuildConfig kullanmadan) */
+    private fun getAppVersion(context: Context): Pair<Int, String> {
+        val pm = context.packageManager
+        val pn = context.packageName
+        val pi = pm.getPackageInfo(pn, 0)
+        val vc = if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode.toInt()
+        else @Suppress("DEPRECATION") pi.versionCode
+        val vn = pi.versionName ?: "0.0.0"
+        return vc to vn
+    }
+
+    /** UI’dan çağır: lifecycleScope.launch { UpdateChecker.checkAndPrompt(this@MainActivity) } */
     suspend fun checkAndPrompt(
         context: Context,
-        manifestUrl: String = defaultManifestUrl(context)
+        manifestUrl: String = DEFAULT_URL
     ) = withContext(Dispatchers.IO) {
-        val (currentVn, currentVc) = currentVersion(context)
-        Log.d("Update", "Manifest URL = $manifestUrl")
-
-        when (val result = check(manifestUrl, currentVn, currentVc)) {
+        val (currentVc, currentVn) = getAppVersion(context)
+        when (val result = check(manifestUrl, currentVc, currentVn)) {
             is UpdateResult.Available -> withContext(Dispatchers.Main) {
                 val title = if (result.mandatory) "Zorunlu Güncelleme" else "Yeni Sürüm Mevcut"
                 val msg = buildString {
@@ -123,7 +124,7 @@ object UpdateChecker {
             is UpdateResult.UpToDate -> withContext(Dispatchers.Main) {
                 Toast.makeText(
                     context,
-                    "Güncel sürümü kullanıyorsun ($currentVn).",
+                    "Güncel sürümü kullanıyorsun (${result.current}).",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -137,55 +138,61 @@ object UpdateChecker {
         }
     }
 
-    // URL’den oku → modern parse (heuristic) → legacy parse → karşılaştır
+    /** İş mantığı: URL’den oku → modern parse dene → legacy parse fallback → karşılaştır */
     private fun check(
         manifestUrl: String,
-        currentVn: String,
-        currentVc: Int
+        currentVc: Int,
+        currentVn: String
     ): UpdateResult = try {
-        Log.d("Update", "GET $manifestUrl")
+        // Cache-buster ile CDN’i atla
+        val bust = System.currentTimeMillis()
+        val urlWithBust = if ('?' in manifestUrl) "$manifestUrl&ts=$bust" else "$manifestUrl?ts=$bust"
+
+        Log.d("Update", "GET $urlWithBust")
+
         val req = Request.Builder()
-            .url(manifestUrl)
+            .url(urlWithBust)
             .header("Accept", "application/json")
+            .header("Cache-Control", "no-cache")
+            .header("Pragma", "no-cache")
             .header("User-Agent", "MoneyAppAndroid/$currentVn")
             .build()
 
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return UpdateResult.Error("HTTP ${resp.code}")
-            val bodyStr = resp.body?.string().orEmpty()
-            if (bodyStr.isBlank()) return UpdateResult.Error("Boş yanıt")
+            val body = resp.body?.string().orEmpty()
+            if (body.isBlank()) return UpdateResult.Error("Boş yanıt")
 
-            // Modern format: latest/url var mı?
-            modernAdapter.fromJson(bodyStr)?.let { m ->
+            // Modern format
+            modernAdapter.fromJson(body)?.let { m ->
                 val latest = m.latest?.trim().orEmpty()
                 val url = m.url?.trim().orEmpty()
-                val looksModern = latest.isNotBlank() || url.isNotBlank()
-                Log.d("Update", "looksModern=$looksModern latest='$latest' urlPresent=${url.isNotBlank()}")
+                val changelog = m.changelog
+                val mandatory = m.minSupported?.let { isNewer(it, currentVn) } == true
+                val hasUpdate = latest.isNotBlank() && isNewer(latest, currentVn)
 
-                if (looksModern) {
-                    val mandatory = m.minSupported?.let { isNewer(it, currentVn) } == true
-                    val hasUpdate = latest.isNotBlank() && isNewer(latest, currentVn)
-                    return when {
-                        mandatory -> UpdateResult.Available(latest.ifBlank { "?" }, url, m.changelog, true)
-                        hasUpdate -> UpdateResult.Available(latest, url, m.changelog, false)
-                        else -> UpdateResult.UpToDate(currentVn)
-                    }
+                Log.d("Update", "looksModern=true latest='$latest' urlPresent=${url.isNotBlank()}")
+                return when {
+                    mandatory -> UpdateResult.Available(latest.ifBlank { "?" }, url, changelog, true)
+                    hasUpdate -> UpdateResult.Available(latest, url, changelog, false)
+                    else -> UpdateResult.UpToDate(currentVn)
                 }
             }
 
             // Legacy format
-            legacyAdapter.fromJson(bodyStr)?.let { r ->
+            legacyAdapter.fromJson(body)?.let { r ->
                 val remoteVc = r.versionCode ?: -1
                 val remoteVn = r.versionName ?: ""
                 val url = r.apkUrl.orEmpty()
+
+                Log.d("Update", "looksModern=false latest='' urlPresent=${url.isNotBlank()}")
                 Log.d("Update", "legacy: remoteVc=$remoteVc localVc=$currentVc")
 
                 val hasByCode = remoteVc > currentVc
                 val hasByName = remoteVn.isNotBlank() && isNewer(remoteVn, currentVn)
-
                 return if (hasByCode || hasByName) {
                     UpdateResult.Available(
-                        latest = remoteVn.ifBlank { "v$remoteVc" },
+                        latest = if (remoteVn.isNotBlank()) remoteVn else "v$remoteVc",
                         url = url,
                         changelog = null,
                         mandatory = false
@@ -203,7 +210,8 @@ object UpdateChecker {
 
     /** Basit semver karşılaştırma: 1.2.3[-...] */
     private fun isNewer(v1: String, v2: String): Boolean {
-        fun parse(v: String) = v.replace(Regex("[^0-9._-]"), "")
+        fun parse(v: String) = v
+            .replace(Regex("[^0-9._-]"), "")
             .split('.', '-', '_')
             .mapNotNull { it.toIntOrNull() }
         val a = parse(v1); val b = parse(v2)

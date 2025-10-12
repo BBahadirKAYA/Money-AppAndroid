@@ -24,26 +24,30 @@ class TransactionAdapter :
         private val dateTextView: TextView? = itemView.findViewById(R.id.tv_date) // opsiyonel
 
         fun bind(tx: TransactionEntity) {
-            descriptionTextView.text = tx.note ?: ""
+            descriptionTextView.text = tx.note.orEmpty()
 
-            // Tutar (kuruş -> TL, 1.234.567 ₺; kuruş yok)
-            val formattedAmount = formatAmountTL(tx.amount)
+            // TL formatı (kuruş -> TL, 1.234.567 ₺), ekranda işaret ayrı verilecek
+            val formattedAbs = formatAmountTL(absTL(tx.amount))
 
+            // Renk ve işaret
             val ctx = amountTextView.context
-            if (tx.type == CategoryType.INCOME) {
-                amountTextView.text = "+$formattedAmount"
-                amountTextView.setTextColor(ContextCompat.getColor(ctx, R.color.green))
-            } else {
-                amountTextView.text = "-$formattedAmount"
-                amountTextView.setTextColor(ContextCompat.getColor(ctx, R.color.red))
-            }
+            val isIncome = tx.type == CategoryType.INCOME
+            val sign = if (isIncome) "+" else "-"
+            val colorRes = if (isIncome) R.color.amountPositive else R.color.amountNegative
+            amountTextView.setTextColor(ContextCompat.getColor(ctx, colorRes))
 
-            // Tarih (saat yok) — layout'ta tv_date varsa doldur
+            // Tabular rakamlar ile hizalama
+            amountTextView.fontFeatureSettings = "tnum"
+            amountTextView.text = "$sign$formattedAbs"
+
+            // Tarih (varsa doldur)
             dateTextView?.text = formatDate(tx.date)
         }
 
-        private fun formatAmountTL(amountCents: Long): String {
-            val tl = amountCents / 100L
+        /** kuruş -> TL (mutlak değer) */
+        private fun absTL(amountCents: Long): Long = kotlin.math.abs(amountCents) / 100L
+
+        private fun formatAmountTL(tl: Long): String {
             val nf = NumberFormat.getInstance(Locale("tr", "TR")).apply {
                 maximumFractionDigits = 0
                 isGroupingUsed = true

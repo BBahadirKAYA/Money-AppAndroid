@@ -15,6 +15,7 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.TimeUnit
+import android.util.Log
 
 /**
  * Uzak manifest örnekleri:
@@ -92,6 +93,7 @@ object UpdateChecker {
         context: Context,
         manifestUrl: String = DEFAULT_URL
     ) = withContext(Dispatchers.IO) {
+        Log.d("Update", "Manifest URL = $manifestUrl")
         when (val result = check(manifestUrl)) {
             is UpdateResult.Available -> withContext(Dispatchers.Main) {
                 val title = if (result.mandatory) "Zorunlu Güncelleme" else "Yeni Sürüm Mevcut"
@@ -132,7 +134,7 @@ object UpdateChecker {
             .header("Accept", "application/json")
             .header("User-Agent", "MoneyAppAndroid/${BuildConfig.VERSION_NAME}")
             .build()
-
+        Log.d("Update", "Manifest URL = $manifestUrl")
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return UpdateResult.Error("HTTP ${resp.code}")
             val body = resp.body?.string().orEmpty()

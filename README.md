@@ -93,9 +93,9 @@ HTTP (cleartext) çağrılar için sadece **debug**’da izin verilir.
 `app/src/debug/AndroidManifest.xml`
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:usesCleartextTraffic="true"
-        android:networkSecurityConfig="@xml/network_security_config" />
+  <application
+          android:usesCleartextTraffic="true"
+          android:networkSecurityConfig="@xml/network_security_config" />
 </manifest>
 ```
 
@@ -103,11 +103,11 @@ HTTP (cleartext) çağrılar için sadece **debug**’da izin verilir.
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
-        <trust-anchors>
-            <certificates src="system" />
-        </trust-anchors>
-    </base-config>
+  <base-config cleartextTrafficPermitted="true">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
 </network-security-config>
 ```
 
@@ -146,9 +146,9 @@ import retrofit2.Call
 import retrofit2.http.GET
 
 interface ApiService {
-    @GET("api/ping") fun ping(): Call<String>
-    @GET("api/transactions") fun transactions(): Call<String> // şimdilik String
-    @GET("api/accounts") fun accounts(): Call<String>
+  @GET("api/ping") fun ping(): Call<String>
+  @GET("api/transactions") fun transactions(): Call<String> // şimdilik String
+  @GET("api/accounts") fun accounts(): Call<String>
 }
 ```
 
@@ -165,60 +165,74 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    private fun withSlash(u: String) = if (u.endsWith("/")) u else "$u/"
+  private fun withSlash(u: String) = if (u.endsWith("/")) u else "$u/"
 
-    private val http = OkHttpClient.Builder()
-        .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .build()
+  private val http = OkHttpClient.Builder()
+    .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
+    .connectTimeout(20, TimeUnit.SECONDS)
+    .readTimeout(20, TimeUnit.SECONDS)
+    .build()
 
-    val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl(withSlash(BuildConfig.BASE_URL))
-        .client(http)
-        .addConverterFactory(ScalarsConverterFactory.create())
-        .addConverterFactory(MoshiConverterFactory.create())
-        .build()
+  val retrofit: Retrofit = Retrofit.Builder()
+    .baseUrl(withSlash(BuildConfig.BASE_URL))
+    .client(http)
+    .addConverterFactory(ScalarsConverterFactory.create())
+    .addConverterFactory(MoshiConverterFactory.create())
+    .build()
 
-    val api: ApiService = retrofit.create(ApiService::class.java)
+  val api: ApiService = retrofit.create(ApiService::class.java)
 }
 ```
 
 Activity’de basit test:
 ```kotlin
 ApiClient.api.ping().enqueue(object: retrofit2.Callback<String> {
-    override fun onResponse(c: retrofit2.Call<String>, r: retrofit2.Response<String>) {
-        android.util.Log.d("API", "ping -> ${r.body()}")
-    }
-    override fun onFailure(c: retrofit2.Call<String>, t: Throwable) {
-        android.util.Log.e("API", "ping error", t)
-    }
+  override fun onResponse(c: retrofit2.Call<String>, r: retrofit2.Response<String>) {
+    android.util.Log.d("API", "ping -> ${r.body()}")
+  }
+  override fun onFailure(c: retrofit2.Call<String>, t: Throwable) {
+    android.util.Log.e("API", "ping error", t)
+  }
 })
 ```
 
 ---
 
-## 🧩 (Opsiyonel) Tipli Modeller
-```kotlin
-@JsonClass(generateAdapter = true)
-data class Account(
-    val id: Int,
-    val name: String,
-    val type: String,
-    val currency_code: String
-)
+## 🔄 Update Helper (Uygulama İçi Güncelleme)
 
-// ApiService:
-// @GET("api/accounts") fun accountsTyped(): Call<List<Account>>
+`update-helper` modülü, uygulamanın **yeni sürümlerini otomatik olarak kontrol etmesini** ve kullanıcıya güncelleme bildirimi göstermesini sağlar.
+Bu sayede kullanıcılar, en güncel APK’ya hızlıca yönlendirilir.
+
+### ⚙️ Çalışma Mantığı
+1. Uygulama açıldığında `update-helper` belirtilen **manifest URL’sini (JSON)** okur.
+2. Manifest’teki `latest` ve `minSupported` sürümlerini, `BuildConfig.VERSION_NAME` ile karşılaştırır.
+3. Yeni sürüm varsa kullanıcıya bildirim gösterir veya zorunlu güncelleme ekranı açar.
+
+### 🧩 Manifest Yapısı
+`update-helper/update.json` örneği:
+```json
+{
+  "latest": "1.0.7",
+  "minSupported": "1.0.0",
+  "url": "https://github.com/BBahadirKAYA/Money-AppAndroid/releases/latest/download/app-release.apk",
+  "changelog": "Yeni özellikler, performans iyileştirmeleri ve hata düzeltmeleri."
+}
 ```
 
----
+### 💻 Kullanım
+```kotlin
+import com.moneyapp.update.UpdateChecker
 
-## 🏗️ Mimari (özet)
-- **UI/Activity/Fragment** → kullanıcı etkileşimi
-- **ViewModel** → UI state & coroutine scope
-- **Repository** → ağ (Retrofit) + yerel (Room) orkestrasyonu
-- **Data** → DTO/Entity/Mapper
+UpdateChecker(context).checkForUpdates(
+    manifestUrl = "https://raw.githubusercontent.com/BBahadirKAYA/Money-AppAndroid/main/update-helper/update.json",
+    currentVersion = BuildConfig.VERSION_NAME
+)
+```
+
+### 🚨 Güncelleme Kuralları
+- `latest` > `current` → Güncelleme bildirimi gösterilir.
+- `current` < `minSupported` → Zorunlu güncelleme ekranı açılır.
+- Manifest okunamazsa veya bağlantı hatası oluşursa → Sessizce yoksayılır.
 
 ---
 

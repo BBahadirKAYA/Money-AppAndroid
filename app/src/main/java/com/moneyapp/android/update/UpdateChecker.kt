@@ -163,29 +163,32 @@ object UpdateChecker {
             val body = resp.body?.string().orEmpty()
             if (body.isBlank()) return UpdateResult.Error("Boş yanıt")
 
-            // Modern format
+// Modern formatı DENE ama gerçekten modern mi kontrol et
             modernAdapter.fromJson(body)?.let { m ->
                 val latest = m.latest?.trim().orEmpty()
-                val url = m.url?.trim().orEmpty()
-                val changelog = m.changelog
-                val mandatory = m.minSupported?.let { isNewer(it, currentVn) } == true
-                val hasUpdate = latest.isNotBlank() && isNewer(latest, currentVn)
+                val url    = m.url?.trim().orEmpty()
+                val looksModern = latest.isNotBlank() || url.isNotBlank()
+                Log.d("Update", "looksModern=$looksModern latest='$latest' urlPresent=${url.isNotBlank()}")
 
-                Log.d("Update", "looksModern=true latest='$latest' urlPresent=${url.isNotBlank()}")
-                return when {
-                    mandatory -> UpdateResult.Available(latest.ifBlank { "?" }, url, changelog, true)
-                    hasUpdate -> UpdateResult.Available(latest, url, changelog, false)
-                    else -> UpdateResult.UpToDate(currentVn)
+                if (looksModern) {
+                    val changelog = m.changelog
+                    val mandatory = m.minSupported?.let { isNewer(it, currentVn) } == true
+                    val hasUpdate = latest.isNotBlank() && isNewer(latest, currentVn)
+
+                    return when {
+                        mandatory -> UpdateResult.Available(latest.ifBlank { "?" }, url, changelog, true)
+                        hasUpdate -> UpdateResult.Available(latest, url, changelog, false)
+                        else      -> UpdateResult.UpToDate(currentVn)
+                    }
                 }
-            }
+            } // ← looksModern false ise legacy bloğuna düşer
 
-            // Legacy format
+// Fallback: legacy format
             legacyAdapter.fromJson(body)?.let { r ->
                 val remoteVc = r.versionCode ?: -1
                 val remoteVn = r.versionName ?: ""
                 val url = r.apkUrl.orEmpty()
 
-                Log.d("Update", "looksModern=false latest='' urlPresent=${url.isNotBlank()}")
                 Log.d("Update", "legacy: remoteVc=$remoteVc localVc=$currentVc")
 
                 val hasByCode = remoteVc > currentVc
@@ -201,6 +204,7 @@ object UpdateChecker {
                     UpdateResult.UpToDate(currentVn)
                 }
             }
+
 
             UpdateResult.Error("JSON parse edilemedi")
         }

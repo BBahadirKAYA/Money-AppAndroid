@@ -170,7 +170,8 @@ fi
 # ──────────────────────────────────────────────────────────────────────────────
 # 9.5) update-helper/update.json üret (ENV → tek kaynak)
 # ──────────────────────────────────────────────────────────────────────────────
-REPO_SLUG="$(git remote get-url origin | sed -E 's#.*github.com[:/](.+?)(\.git)?$#\1#')"
+url="$(git remote get-url origin)"
+REPO_SLUG="$(echo "$url" | sed -E 's#(git@|https?://)github.com[:/ ]##; s#\.git$##')"
 APK_FILENAME="$(basename "$APK_PATH")"
 APK_URL="https://github.com/${REPO_SLUG}/releases/download/v${VNAME}/${APK_FILENAME}"
 

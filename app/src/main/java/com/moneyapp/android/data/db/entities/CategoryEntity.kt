@@ -1,18 +1,18 @@
-package com.moneyapp.android.data.db
+package com.moneyapp.android.data.db.entities
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 import androidx.room.Index
+import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "accounts",
+    tableName = "categories",
     indices = [Index(value = ["uuid"], unique = true)]
 )
-data class AccountEntity(
+data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val localId: Long = 0L,
     val uuid: String? = null,
     val name: String,
-    val balance: Long = 0L, // kuruş cinsinden
+    val type: CategoryType = CategoryType.EXPENSE,  // enum kullanıyoruz
     val dirty: Boolean = true,
     val deleted: Boolean = false,
     val updatedAtLocal: Long = System.currentTimeMillis(),

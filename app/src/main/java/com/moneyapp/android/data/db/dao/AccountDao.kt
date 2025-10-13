@@ -1,6 +1,7 @@
-package com.moneyapp.android.data.db
+package com.moneyapp.android.data.db.dao
 
 import androidx.room.*
+import com.moneyapp.android.data.db.entities.AccountEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -11,6 +12,7 @@ interface AccountDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(account: AccountEntity): Long
+
     @Query("SELECT * FROM accounts WHERE uuid = :uuid LIMIT 1")
     suspend fun getByUuid(uuid: String): AccountEntity?
 
@@ -19,5 +21,4 @@ interface AccountDao {
 
     @Query("UPDATE accounts SET deleted = 1, dirty = 1 WHERE localId = :id")
     suspend fun softDelete(id: Long)
-
 }

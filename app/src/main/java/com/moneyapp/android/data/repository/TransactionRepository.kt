@@ -1,7 +1,9 @@
 package com.moneyapp.android.data.repository
 
 import android.util.Log
-import com.moneyapp.android.data.db.*
+import com.moneyapp.android.data.db.dao.TransactionDao
+import com.moneyapp.android.data.db.entities.TransactionEntity
+import com.moneyapp.android.data.db.entities.CategoryType
 import com.moneyapp.android.data.net.ApiClient
 import com.moneyapp.android.data.net.TransactionDto
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +43,7 @@ class TransactionRepository(
 
 // --- Mapping yardımcıları ---
 private fun TransactionDto.toEntityOrNull(): TransactionEntity? {
-    // amount: "36000.00" → 3600000 (kuruş); null ise 0
+    // amount: "36000.00" → 3_600_000 (kuruş); null ise 0
     val amountCents = try {
         amount?.let {
             BigDecimal(it).multiply(BigDecimal(100))
@@ -54,11 +56,8 @@ private fun TransactionDto.toEntityOrNull(): TransactionEntity? {
 
     // occurred_at: ISO-8601 → epochMillis
     val epochMillis = try {
-        // Saat içermiyorsa LocalDate.parse ile de ele alınabilir,
-        // ancak ISO_OFFSET_DATE_TIME çoğu durumda yeterli.
         OffsetDateTime.parse(occurredAt).toInstant().toEpochMilli()
     } catch (e: Exception) {
-        // Bazı kayıtlar sadece tarih (YYYY-MM-DD) olabilir:
         try {
             LocalDate.parse(occurredAt).atStartOfDay(ZoneId.systemDefault())
                 .toInstant().toEpochMilli()
@@ -73,8 +72,8 @@ private fun TransactionDto.toEntityOrNull(): TransactionEntity? {
 
     return TransactionEntity(
         uuid = id.toString(),
-        amount = amountCents,
-        note = note,
+        amountCents = amountCents,
+        description = note,
         date = epochMillis,
         type = txType,
         dirty = false,

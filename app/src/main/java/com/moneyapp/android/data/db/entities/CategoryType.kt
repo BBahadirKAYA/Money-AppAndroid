@@ -1,4 +1,4 @@
-package com.moneyapp.android.data.db
+package com.moneyapp.android.data.db.entities
 
 enum class CategoryType {
     INCOME,

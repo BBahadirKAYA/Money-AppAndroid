@@ -34,6 +34,41 @@ import java.util.concurrent.TimeUnit
  * { "versionCode":120, "versionName":"1.2.0", "apkUrl":"https://.../app-release.apk" }
  */
 
+// --- Yardımcılar: changelog'u kısalt ve tag sayfası URL'sini çıkar ---
+private fun compactChangelog(
+    raw: String,
+    maxLines: Int = 6,
+    maxChars: Int = 400
+): String {
+    // Kod bloklarını çıkar
+    val noFences = raw.replace(Regex("(?s)```.*?```"), "")
+    // Başlıkları kaldır (#, ## …)
+    val noHead = noFences.lines().filter { line ->
+        val t = line.trim()
+        t.isNotEmpty() && !t.startsWith("#")
+    }
+    // Madde işaretlerine öncelik ver; yoksa ilk satırlar
+    val bullets = noHead.filter { it.trim().startsWith("-") || it.trim().startsWith("*") || it.trim().startsWith("•") }
+    val picked = (if (bullets.isNotEmpty()) bullets else noHead)
+        .map { it.trim().trim('`') }
+        .filter { it.isNotEmpty() }
+        .take(maxLines)
+        .joinToString("\n")
+
+    val trimmed = picked.take(maxChars)
+    return if (trimmed.length < picked.length) "$trimmed …" else trimmed
+}
+
+// İndirilen asset URL'sinden release tag sayfasını tahmin et
+private fun guessTagPageFromAssetUrl(assetUrl: String): String? {
+    // örn: https://github.com/OWNER/REPO/releases/download/v1.2.1/file.apk
+    val rx = Regex("""^(https://github\.com/[^/]+/[^/]+)/releases/download/([^/]+)/.+$""")
+    val m = rx.find(assetUrl) ?: return null
+    val repo = m.groupValues[1]
+    val tag  = m.groupValues[2]
+    return "$repo/releases/tag/$tag"
+}
+
 @JsonClass(generateAdapter = true)
 data class LegacyReleaseInfo(
     val versionCode: Int? = null,
@@ -110,21 +145,29 @@ object UpdateChecker {
         context: Context,
         manifestUrl: String? = null
     ) = withContext(Dispatchers.IO) {
+
         val (currentVc, currentVn) = getAppVersion(context)
         val url = manifestUrl?.ifBlank { null } ?: DEFAULT_URL
 
         when (val result = check(url, currentVc, currentVn)) {
             is UpdateResult.Available -> withContext(Dispatchers.Main) {
                 val title = if (result.mandatory) "Zorunlu Güncelleme" else "Yeni Sürüm Mevcut"
+
+                val shortChangelog = result.changelog
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { compactChangelog(it) }
+
                 val msg = buildString {
                     append("Son sürüm: ${result.latest}\n")
-                    result.changelog?.takeIf { it.isNotBlank() }?.let {
+                    shortChangelog?.let {
                         append("\nDeğişiklikler:\n$it")
                     }
                     result.sha256?.takeIf { it.isNotBlank() }?.let {
                         append("\nSHA-256:\n$it")
                     }
                 }
+
+                val tagPage = guessTagPageFromAssetUrl(result.url)
 
                 AlertDialog.Builder(context)
                     .setTitle(title)
@@ -136,7 +179,17 @@ object UpdateChecker {
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
                     }
-                    .apply { if (!result.mandatory) setNegativeButton("Sonra", null) }
+                    .apply {
+                        if (tagPage != null) {
+                            setNeutralButton("Detaylar") { _, _ ->
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(tagPage))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            }
+                        }
+                        if (!result.mandatory) setNegativeButton("Sonra", null)
+                    }
                     .show()
             }
 

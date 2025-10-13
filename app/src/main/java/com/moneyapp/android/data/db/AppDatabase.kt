@@ -1,9 +1,19 @@
 package com.moneyapp.android.data.db
-import androidx.room.TypeConverters
+
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import com.moneyapp.android.data.db.converters.CategoryTypeConverter
+import com.moneyapp.android.data.db.dao.AccountDao
+import com.moneyapp.android.data.db.dao.CategoryDao
+import com.moneyapp.android.data.db.dao.RecurringRuleDao
+import com.moneyapp.android.data.db.dao.TransactionDao
+import com.moneyapp.android.data.db.entities.AccountEntity
+import com.moneyapp.android.data.db.entities.CategoryEntity
+import com.moneyapp.android.data.db.entities.RecurringRuleEntity
+import com.moneyapp.android.data.db.entities.TransactionEntity
 
 @Database(
     entities = [
@@ -12,10 +22,10 @@ import androidx.room.RoomDatabase
         CategoryEntity::class,
         RecurringRuleEntity::class
     ],
-    version = 3,
+    version = 4,            // şema değiştiyse artır; devde fallback aktif
     exportSchema = false
 )
-@TypeConverters(Converters::class)   // 👈 ekle
+@TypeConverters(CategoryTypeConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun transactionDao(): TransactionDao
@@ -24,22 +34,18 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recurringRuleDao(): RecurringRuleDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
+        @Volatile private var INSTANCE: AppDatabase? = null
 
-        fun getInstance(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+        fun getInstance(context: Context): AppDatabase =
+            INSTANCE ?: synchronized(this) {
+                Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "moneyapp.db"
                 )
-                    .fallbackToDestructiveMigration() // ✅ test/dev için güvenli
-                    //.addMigrations(MIGRATION_1_2)   // ➡️ ileride migration eklenebilir
+                    .fallbackToDestructiveMigration()
                     .build()
-                INSTANCE = instance
-                instance
+                    .also { INSTANCE = it }
             }
-        }
     }
 }

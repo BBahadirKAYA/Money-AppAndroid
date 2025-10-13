@@ -9,8 +9,8 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.moneyapp.android.R
-import com.moneyapp.android.data.db.TransactionEntity
-import com.moneyapp.android.data.db.CategoryType
+import com.moneyapp.android.data.db.entities.TransactionEntity
+import com.moneyapp.android.data.db.entities.CategoryType
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -24,10 +24,11 @@ class TransactionAdapter :
         private val dateTextView: TextView? = itemView.findViewById(R.id.tv_date) // opsiyonel
 
         fun bind(tx: TransactionEntity) {
-            descriptionTextView.text = tx.note.orEmpty()
+            // Açıklama
+            descriptionTextView.text = tx.description.orEmpty()
 
             // TL formatı (kuruş -> TL, 1.234.567 ₺), ekranda işaret ayrı verilecek
-            val formattedAbs = formatAmountTL(absTL(tx.amount))
+            val formattedAbs = formatAmountTL(absTL(tx.amountCents))
 
             // Renk ve işaret
             val ctx = amountTextView.context
@@ -40,15 +41,16 @@ class TransactionAdapter :
             amountTextView.fontFeatureSettings = "tnum"
             amountTextView.text = "$sign$formattedAbs"
 
-            // Tarih (varsa doldur)
+            // Tarih (epoch millis)
             dateTextView?.text = formatDate(tx.date)
         }
 
-        /** kuruş -> TL (mutlak değer) */
+        /** kuruş -> TL (mutlak değer, tam sayı TL) */
         private fun absTL(amountCents: Long): Long = kotlin.math.abs(amountCents) / 100L
 
         private fun formatAmountTL(tl: Long): String {
-            val nf = NumberFormat.getInstance(Locale("tr", "TR")).apply {
+            val locale = Locale.forLanguageTag("tr-TR") // ✅ modern, deprecated değil
+            val nf = NumberFormat.getInstance(locale).apply {
                 maximumFractionDigits = 0
                 isGroupingUsed = true
             }
@@ -56,9 +58,12 @@ class TransactionAdapter :
         }
 
         private fun formatDate(epochMillis: Long): String {
-            val sdf = SimpleDateFormat("dd.MM.yyyy", Locale("tr", "TR"))
+            val locale = Locale.forLanguageTag("tr-TR") // aynı locale tekrar kullanılıyor
+            val sdf = SimpleDateFormat("dd.MM.yyyy", locale)
             return sdf.format(Date(epochMillis))
         }
+
+
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {

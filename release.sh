@@ -2,11 +2,12 @@
 set -euo pipefail
 
 ################################################################################
-# MoneyAppAndroid - Release Script (APK focus; optional AAB)
-# - Single-source versioning: ENV/.env -> fallback gradle.properties
-# - Gradle'a VERSION_NAME/CODE -P ile geçilir (app/build.gradle.kts bu -P'leri okur)
-# - unsigned -> zipalign -> apksigner -> verify -> dist/ -> git tag -> GitHub Release
-# - update-helper/update.json dosyasını ENV'den üretir ve repo'ya pushlar
+# MoneyAppAndroid - Release Script (APK odak; opsiyonel AAB)
+# - Versiyon tek kaynak: ENV/.env -> fallback gradle.properties
+# - Gradle'a VERSION_NAME/CODE -P ile geçilir (app/build.gradle.kts bunları okur)
+# - unsigned -> zipalign -> apksigner -> verify -> dist/
+# - tag/push -> GitHub Release
+# - update-helper/update.json (modern): latest/minSupported/url/sha256/changelog
 ################################################################################
 
 die()  { echo "❌ $*" >&2; exit 1; }
@@ -24,10 +25,13 @@ load_env() {
     while IFS='=' read -r k v; do
       [[ -z "${k// }" ]] && continue
       [[ "${k:0:1}" == "#" ]] && continue
-      case "$k" in
-        KS_PASS|KS_FILE|KS_ALIAS|VNAME|VCODE|DIST_DIR|BRANCH|BUILD_AAB|RELEASE_NOTES) ;;
-        *) continue ;;
-      esac
+case "$k" in
+  KS_PASS|KS_FILE|KS_ALIAS|VNAME|VCODE|DIST_DIR|BRANCH|BUILD_AAB|RELEASE_NOTES| \
+  MIN_SUPPORTED|VMIN|CHANGELOG_FILE|MANIFEST_PATH|MANIFEST_MODE| \
+  GH_OWNER|GH_REPO) ;;
+  *) continue ;;
+esac
+
       v="${v%$'\r'}"; v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
       export "$k=$v"
     done < <(grep -E '^[A-Za-z0-9_]+=.*' .env)
@@ -44,6 +48,9 @@ read_prop() { grep -E "^$1=" gradle.properties 2>/dev/null | head -n1 | cut -d= 
 : "${VNAME:=$(read_prop VERSION_NAME || true)}"
 : "${VCODE:=$(read_prop VERSION_CODE || true)}"
 [[ -n "${VNAME:-}" && -n "${VCODE:-}" ]] || die "VNAME/VCODE bulunamadı (.env veya gradle.properties)."
+
+# minSupported (modern manifest için)
+: "${MIN_SUPPORTED:=${VMIN:-}}"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 2) Keystore ayarları (+ otomatik .b64 decode)
@@ -74,7 +81,6 @@ BT_DIR="${ANDROID_HOME:-$HOME/Android/Sdk}/build-tools"
 find_tool() {
   local name="$1"
   local cand
-  # en yeni sürümü seç
   cand="$(find "$BT_DIR" -type f -name "$name" -printf "%h/%f\n" 2>/dev/null | sort -V | tail -n1)"
   [[ -x "$cand" ]] || die "$name bulunamadı (build-tools)."
   echo "$cand"
@@ -89,6 +95,9 @@ DIST_DIR="${DIST_DIR:-dist}"
 BRANCH="${BRANCH:-main}"
 BUILD_AAB="${BUILD_AAB:-0}"
 RELEASE_NOTES="${RELEASE_NOTES:-RELEASE_NOTES.md}"
+CHANGELOG_FILE="${CHANGELOG_FILE:-}"
+MANIFEST_PATH="${MANIFEST_PATH:-update-helper/update.json}"
+MANIFEST_MODE="${MANIFEST_MODE:-modern}"   # modern | legacy
 TAG="v${VNAME}"
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -168,22 +177,63 @@ if [[ "$BUILD_AAB" == "1" ]]; then
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 9.5) update-helper/update.json üret (ENV → tek kaynak)
+# 9.4) Changelog içeriği (öncelik: RELEASE_NOTES → CHANGELOG_FILE → git log)
+# ──────────────────────────────────────────────────────────────────────────────
+CHANGELOG_CONTENT=""
+if [[ -f "$RELEASE_NOTES" ]]; then
+  CHANGELOG_CONTENT="$(sed -n '1,120p' "$RELEASE_NOTES" | sed 's/"/\\"/g')"
+elif [[ -n "$CHANGELOG_FILE" && -f "$CHANGELOG_FILE" ]]; then
+  CHANGELOG_CONTENT="$(sed -n '1,120p' "$CHANGELOG_FILE" | sed 's/"/\\"/g')"
+else
+  PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo "")"
+  if [[ -n "$PREV_TAG" ]]; then
+    CHANGELOG_CONTENT="$(git log --pretty=format:'* %s' "${PREV_TAG}..HEAD" | sed -n '1,120p' | sed 's/"/\\"/g')"
+  else
+    CHANGELOG_CONTENT="Stabil iyileştirmeler ve hata düzeltmeleri."
+  fi
+fi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 9.5) Repo slug tespiti (ssh/https fark etmeksizin)
 # ──────────────────────────────────────────────────────────────────────────────
 url="$(git remote get-url origin)"
-REPO_SLUG="$(echo "$url" | sed -E 's#(git@|https?://)github.com[:/ ]##; s#\.git$##')"
+# Örn: git@github.com:Owner/Repo.git  |  https://github.com/Owner/Repo.git
+REPO_SLUG="$(echo "$url" \
+  | sed -E 's#(git@|https?://)github.com[:/ ]##; s#\.git$##; s#^/+##;')"
+
+# Manuel override istersen .env ile verilebilir:
+if [[ -n "${GH_OWNER:-}" && -n "${GH_REPO:-}" ]]; then
+  REPO_SLUG="${GH_OWNER}/${GH_REPO}"
+fi
+
 APK_FILENAME="$(basename "$APK_PATH")"
 APK_URL="https://github.com/${REPO_SLUG}/releases/download/v${VNAME}/${APK_FILENAME}"
 
-mkdir -p update-helper
-cat > update-helper/update.json <<EOF
+# ──────────────────────────────────────────────────────────────────────────────
+# 9.6) update-helper/update.json üret (modern/legacy mod)
+# ──────────────────────────────────────────────────────────────────────────────
+mkdir -p "$(dirname "$MANIFEST_PATH")"
+if [[ "$MANIFEST_MODE" == "legacy" ]]; then
+  cat > "$MANIFEST_PATH" <<EOF
 {
   "versionCode": ${VCODE},
   "versionName": "${VNAME}",
   "apkUrl": "${APK_URL}"
 }
 EOF
-git add update-helper/update.json || true
+else
+  # modern
+  cat > "$MANIFEST_PATH" <<EOF
+{
+  "latest": "${VNAME}",
+  "minSupported": "${MIN_SUPPORTED:-1.0.0}",
+  "url": "${APK_URL}",
+  "sha256": "${SHA}",
+  "changelog": "$(echo -e "$CHANGELOG_CONTENT")"
+}
+EOF
+fi
+git add "$MANIFEST_PATH" || true
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 10) Git (commit + tag + push)
@@ -209,22 +259,26 @@ git push origin "${TAG}" || note "${TAG} push atlandı/uzakta olabilir."
 if command -v gh >/dev/null 2>&1; then
   sec "GitHub release…"
   RN_ARG=()
-  [[ -f "$RELEASE_NOTES" ]] && RN_ARG=(--notes-file "$RELEASE_NOTES") || RN_ARG=(--notes "Stabil ${VNAME} yayımlandı.")
+  if [[ -f "$RELEASE_NOTES" ]]; then
+    RN_ARG=(--notes-file "$RELEASE_NOTES")
+  else
+    RN_ARG=(--notes "Stabil ${VNAME} yayımlandı.")
+  fi
+
   if gh release view "${TAG}" >/dev/null 2>&1; then
     note "${TAG} var, asset'ler güncelleniyor (--clobber)."
     gh release upload "${TAG}" "${APK_PATH}" "${APK_SHA_PATH}" --clobber
     for extra in "${DIST_DIR}"/com.moneyapp.android-v${VNAME}-${VCODE}-release.aab*; do
       [[ -e "$extra" ]] && gh release upload "${TAG}" "$extra" --clobber || true
     done
-    # update.json'u da release asset olarak yükle (opsiyonel ama faydalı)
-    [[ -f update-helper/update.json ]] && gh release upload "${TAG}" "update-helper/update.json" --clobber || true
+    [[ -f "$MANIFEST_PATH" ]] && gh release upload "${TAG}" "$MANIFEST_PATH" --clobber || true
   else
     note "${TAG} oluşturuluyor…"
     gh release create "${TAG}" "${APK_PATH}" "${APK_SHA_PATH}" "${RN_ARG[@]}" --title "${TAG}"
     for extra in "${DIST_DIR}"/com.moneyapp.android-v${VNAME}-${VCODE}-release.aab*; do
       [[ -e "$extra" ]] && gh release upload "${TAG}" "$extra" --clobber || true
     done
-    [[ -f update-helper/update.json ]] && gh release upload "${TAG}" "update-helper/update.json" --clobber || true
+    [[ -f "$MANIFEST_PATH" ]] && gh release upload "${TAG}" "$MANIFEST_PATH" --clobber || true
   fi
   ok "GitHub release tamam."
 else

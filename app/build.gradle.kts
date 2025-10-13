@@ -1,3 +1,6 @@
+// Kotlin DSL build script (app/)
+
+// ── Imports (rename for clarity)
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -7,11 +10,6 @@ import java.nio.file.StandardCopyOption
 import java.time.LocalDateTime as JLocalDateTime
 import java.time.ZoneId as JZoneId
 import java.time.format.DateTimeFormatter as JDateTimeFormatter
-
-
-
-
-// NOT: ApkVariantOutput import'u gerekmiyor (post-build rename kullanıyoruz)
 
 plugins {
     id("com.android.application")
@@ -23,9 +21,10 @@ android {
     namespace = "com.moneyapp.android"
     compileSdk = 36
 
-    // --- DEBUG keystore'u opsiyonel yap ---
+    // ENV ile ortak debug keystore (opsiyonel)
     val hasSharedDebug = listOf(
-        "SIGNING_STORE_FILE", "SIGNING_STORE_PASSWORD", "SIGNING_KEY_ALIAS", "SIGNING_KEY_PASSWORD"
+        "SIGNING_STORE_FILE", "SIGNING_STORE_PASSWORD",
+        "SIGNING_KEY_ALIAS", "SIGNING_KEY_PASSWORD"
     ).all { !System.getenv(it).isNullOrBlank() }
 
     signingConfigs {
@@ -37,7 +36,7 @@ android {
                 keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
             }
         }
-        // release için ayrı bir config istersen burada create("release") ile tanımlayabilirsin
+        // release için ayrıca create("release") tanımlayabilirsin (mağaza dağıtımı)
     }
 
     defaultConfig {
@@ -45,89 +44,89 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-// ---- BuildConfig.UPDATE_MANIFEST_URL ----
-        val updateManifest = (project.findProperty("UPDATE_MANIFEST_URL") as String?
-            ?: "https://raw.githubusercontent.com/BBahadirKAYA/Money-AppAndroid/main/update-helper/update.json")
+
+        // --- BuildConfig.UPDATE_MANIFEST_URL ---
+        val updateManifest = (project.findProperty("UPDATE_MANIFEST_URL") as String?)
+            ?: "https://raw.githubusercontent.com/BBahadirKAYA/Money-AppAndroid/main/update-helper/update.json"
         buildConfigField("String", "UPDATE_MANIFEST_URL", "\"$updateManifest\"")
 
-        // --- 1) ENV oku ---
+        // --- Version name/code: ENV > .env > -P ---
         val envVName = System.getenv("VNAME") ?: System.getenv("VERSION_NAME")
         val envVCode = System.getenv("VCODE") ?: System.getenv("VERSION_CODE")
 
-        // --- 2) .env dosyasından oku (Studio için) ---
         fun loadDotEnv(key: String): String? {
             val f = rootProject.file(".env")
             if (!f.exists()) return null
-            // basit KEY=VALUE parser (yorum/satırsonu kırpma)
             val line = f.readLines()
-                .firstOrNull { it.trim().isNotEmpty() && !it.trim().startsWith("#") && it.startsWith("$key=") }
-                ?: return null
+                .firstOrNull {
+                    val t = it.trim()
+                    t.isNotEmpty() && !t.startsWith("#") && t.startsWith("$key=")
+                } ?: return null
             return line.substringAfter("=").trim().trim('"', '\'')
         }
         val fileVName = loadDotEnv("VNAME") ?: loadDotEnv("VERSION_NAME")
         val fileVCode = loadDotEnv("VCODE") ?: loadDotEnv("VERSION_CODE")
 
-        // --- 3) -P (yedek) ---
         val propVName = project.findProperty("VERSION_NAME") as String?
         val propVCode = project.findProperty("VERSION_CODE") as String?
 
-        // --- 4) Öncelik: ENV > .env > -P ---
         val vName = (envVName ?: fileVName ?: propVName)
-            ?: throw GradleException("VERSION_NAME/VNAME tanımlı değil (ENV/.env veya -P ile ver).")
+            ?: throw GradleException("VERSION_NAME/VNAME tanımlı değil (ENV/.env veya -P).")
         val vCode = (envVCode ?: fileVCode ?: propVCode)?.toIntOrNull()
-            ?: throw GradleException("VERSION_CODE/VCODE tanımlı değil veya int değil (ENV/.env veya -P ile ver).")
+            ?: throw GradleException("VERSION_CODE/VCODE tanımlı değil veya int değil (ENV/.env veya -P).")
 
         versionName = vName
         versionCode = vCode
 
-        // BASE_URL
+        // --- BuildConfig.BASE_URL ---
         val backendUrl = (project.findProperty("BASE_URL") as String?) ?: "http://10.0.2.2:8000/"
         buildConfigField("String", "BASE_URL", "\"$backendUrl\"")
     }
 
-
-
-
-    // --- buildTypes: tek blok, şartlı imzalama ---
     buildTypes {
         getByName("debug") {
             if (hasSharedDebug) {
                 signingConfig = signingConfigs.getByName("sharedDebug")
-            } // else: Android'in default debug.keystore'u kullanılacak
+            }
         }
         getByName("release") {
             isMinifyEnabled = false
-            // Geçici olarak aynı imzayı istiyorsan ve env doluysa:
             if (hasSharedDebug) {
                 signingConfig = signingConfigs.getByName("sharedDebug")
             }
-            // Not: Mağaza dağıtımı hedefliyorsan release için ayrı bir keystore tanımla.
+            // ProGuard/R8 kuralı eklemek istersen: proguardFiles(...)
         }
     }
 
-    buildFeatures { viewBinding = true; buildConfig = true }
-    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = false
+    }
     kotlinOptions { jvmTarget = "17" }
+
     packaging {
         jniLibs {
-            // Eski “merge native libs” davranışı; çoğu çakışmayı bypass eder
+            // Birden fazla libc++_shared.so varsa çakışmayı bastır
             useLegacyPackaging = true
-            // Yaygın çakışma: birden fazla libc++_shared.so
             pickFirsts += listOf("**/libc++_shared.so")
         }
         resources {
-            // Lisans dosyası çakışmaları (zararsız) dursun
             excludes += listOf(
-                "META-INF/LICENSE*",
-                "META-INF/AL2.0",
-                "META-INF/LGPL2.1"
+                "META-INF/LICENSE*", "META-INF/AL2.0", "META-INF/LGPL2.1"
             )
         }
     }
 }
 
-
-// ---- Version bilgisini yazdıran yardımcı task ----
+// ──────────────────────────────────────────────────────────────────────────────
+// Helper: Versiyon bilgisini yazdır
+// ──────────────────────────────────────────────────────────────────────────────
 tasks.register("printVersionInfo") {
     doLast {
         val vc = android.defaultConfig.versionCode ?: 0
@@ -138,36 +137,38 @@ tasks.register("printVersionInfo") {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MoneyApp → Sheets: derleme sonrası versiyon bilgisini yaz
+// Google Sheets webhook’a (Apps Script) post eden task
+// Gerekli -P/ENV: SHEET_WEBHOOK_URL, APK_PUBLISH_URL
 // ──────────────────────────────────────────────────────────────────────────────
 val postVersionToSheet by tasks.registering {
     group = "release"
     description = "POST version row to Google Sheets webhook"
 
     doLast {
-        // 1) Android defaultConfig bilgileri
-        val appExt8 = project.extensions.findByType(com.android.build.api.dsl.ApplicationExtension::class.java)
-        val appExt7 = project.extensions.findByType(com.android.build.gradle.internal.dsl.BaseAppModuleExtension::class.java)
+        // defaultConfig’i çek (AGP 8/9 uyumlu)
+        val appExt8 = project.extensions.findByType(
+            com.android.build.api.dsl.ApplicationExtension::class.java
+        )
+        val appExt7 = project.extensions.findByType(
+            com.android.build.gradle.internal.dsl.BaseAppModuleExtension::class.java
+        )
         val (vCode, vName) = when {
             appExt8 != null -> (appExt8.defaultConfig.versionCode ?: 0) to (appExt8.defaultConfig.versionName ?: "0.0.0")
             appExt7 != null -> (appExt7.defaultConfig.versionCode ?: 0) to (appExt7.defaultConfig.versionName ?: "0.0.0")
-            else -> throw GradleException("Android plugin not applied: 'android' extension yok.")
+            else -> throw GradleException("Android plugin not applied.")
         }
 
-        // 2) Property okuma — projeden, root'tan, sysprop'tan, env'den
         fun prop(name: String): String? =
-            (project.findProperty(name) as String?) ?:
-            (rootProject.findProperty(name) as String?) ?:
-            System.getProperty(name) ?:
-            System.getenv(name)
+            (project.findProperty(name) as String?)
+                ?: (rootProject.findProperty(name) as String?)
+                ?: System.getProperty(name)
+                ?: System.getenv(name)
 
         val apkUrl = prop("APK_PUBLISH_URL")
-            ?: throw GradleException("APK_PUBLISH_URL tanımlı değil (gradle.properties, ~/.gradle/gradle.properties, -P veya env).")
-
+            ?: throw GradleException("APK_PUBLISH_URL tanımlı değil (-P veya ENV).")
         val webhook = prop("SHEET_WEBHOOK_URL")
-            ?: throw GradleException("SHEET_WEBHOOK_URL tanımlı değil.")
+            ?: throw GradleException("SHEET_WEBHOOK_URL tanımlı değil (-P veya ENV).")
 
-        // 3) 3xx'leri başarı say + JSON
         val json = """
           {"version_code":$vCode,"versionCode":$vCode,
            "version_name":"$vName","versionName":"$vName",
@@ -184,22 +185,20 @@ val postVersionToSheet by tasks.registering {
             .build()
 
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
-        val ok = res.statusCode() in 200..299 || res.statusCode() in 300..399
-        if (!ok) throw GradleException("Sheet'e yazılamadı → HTTP ${res.statusCode()} ${res.body()}")
+        val ok = res.statusCode() in 200..399
+        if (!ok) error("Sheet'e yazılamadı → HTTP ${res.statusCode()} ${res.body()}")
         println("✓ Sheet güncellendi: $vName ($vCode) -> $apkUrl [HTTP ${res.statusCode()}]")
     }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// APK dosyasını derleme SONRASI versiyon + tarih ile yeniden adlandır (copy)
-// ve publish görevini oluştur
+// APK’yı derleme sonrası yeniden adlandır ve publish zincirini kur
 // ──────────────────────────────────────────────────────────────────────────────
 fun registerRenameApkTask(buildType: String) {
     val cap = buildType.replaceFirstChar { it.uppercase() }
     val renameTaskName = "rename${cap}Apk"
     val publishTaskName = "publish${cap}Apk"
 
-    // rename<Cap>Apk
     tasks.register(renameTaskName) {
         dependsOn("assemble$cap")
         doLast {
@@ -207,7 +206,6 @@ fun registerRenameApkTask(buildType: String) {
             val vc = android.defaultConfig.versionCode ?: 0
             val ts = JLocalDateTime.now(JZoneId.of("Europe/Istanbul"))
                 .format(JDateTimeFormatter.ofPattern("yyMMddHH"))
-
 
             val outDir = layout.buildDirectory.dir("outputs/apk/$buildType").get().asFile
             require(outDir.exists()) { "APK dizini bulunamadı: $outDir" }
@@ -223,7 +221,7 @@ fun registerRenameApkTask(buildType: String) {
         }
     }
 
-    // assemble<Cap> tamamlanınca finalize et (opsiyonel ama hoş)
+    // assemble tamamlanınca rename'i finalize et
     gradle.projectsEvaluated {
         tasks.matching { it.name == "assemble$cap" }.configureEach {
             finalizedBy(renameTaskName)
@@ -235,27 +233,24 @@ fun registerRenameApkTask(buildType: String) {
         dependsOn(renameTaskName, postVersionToSheet)
     }
 
-    // postVersionToSheet mutlaka rename'den sonra koşsun
-    postVersionToSheet.configure {
-        mustRunAfter(renameTaskName)
-    }
+    // postVersionToSheet, rename'den sonra koşsun
+    postVersionToSheet.configure { mustRunAfter(renameTaskName) }
 }
 
-// Debug ve Release için kur
 registerRenameApkTask("debug")
 registerRenameApkTask("release")
 
-// Tek komutta uçtan uca (debug) çalıştırmak için yardımcı task (tekil tanım)
+// Tek komutta uçtan uca (debug): assemble → rename → sheet POST
 if (tasks.findByName("buildDebugAndPost") == null) {
     tasks.register("buildDebugAndPost") {
-        // zincir: assembleDebug → renameDebugApk → postVersionToSheet
         dependsOn("publishDebugApk")
     }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// sürümler
+// Dependencies
 // ──────────────────────────────────────────────────────────────────────────────
+
 val roomVersion = "2.6.1"
 val okhttpVersion = "4.12.0"
 val retrofitVersion = "2.11.0"
@@ -264,9 +259,8 @@ val lifecycleVersion = "2.8.6"
 
 dependencies {
     implementation(project(":update-helper"))
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6") // lifecycleScope için
 
-    // Kotlin
+    // Kotlin + Coroutines
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.0.20"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
@@ -275,6 +269,12 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.fragment:fragment-ktx:1.8.3")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
+    implementation("androidx.coordinatorlayout:coordinatorlayout:1.2.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.emoji2:emoji2:1.4.0")
 
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion")
@@ -283,36 +283,22 @@ dependencies {
     // Material 3
     implementation("com.google.android.material:material:1.12.0")
 
-    // Retrofit + dönüştürücüler
-    implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
-    implementation("com.squareup.retrofit2:converter-scalars:$retrofitVersion")
-    implementation("com.squareup.retrofit2:converter-moshi:$retrofitVersion")
-
-    // OkHttp (+ logging)
+    // Networking (OkHttp + Retrofit + Moshi)
     implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
     implementation("com.squareup.okhttp3:logging-interceptor:$okhttpVersion")
-
-    // Moshi
+    implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
+    implementation("com.squareup.retrofit2:converter-moshi:$retrofitVersion")
+    implementation("com.squareup.retrofit2:converter-scalars:$retrofitVersion")
     implementation("com.squareup.moshi:moshi:$moshiVersion")
     implementation("com.squareup.moshi:moshi-kotlin:$moshiVersion")
 
-    // Room + KSP
+    // Room (KSP)
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 
-    // Test
+    // Tests
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    // Eski transitifleri ez: (Material/AppCompat ile uyumlu modern sürümler)
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("androidx.viewpager2:viewpager2:1.1.0")
-    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
-    implementation("androidx.coordinatorlayout:coordinatorlayout:1.2.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.fragment:fragment-ktx:1.8.3")
-    implementation("androidx.emoji2:emoji2:1.4.0")
-
 }

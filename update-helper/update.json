@@ -1,5 +1,126 @@
 {
-  "versionCode": 120,
-  "versionName": "1.2.0",
-  "apkUrl": "https://github.com/BBahadirKAYA/Money-AppAndroid/releases/download/v1.2.0/com.moneyapp.android-v1.2.0-120-release.apk"
+  "latest": "1.2.1",
+  "minSupported": "1.0.0",
+  "url": "https://github.com/BBahadirKAYA/Money-AppAndroid/releases/download/v1.2.1/com.moneyapp.android-v1.2.1-121-release.apk",
+  "sha256": "b593369055ab0f0c7a61ced0d8d8d4c1003c8646cb90e8836be7ee7f5f34ec32",
+  "changelog": "# MoneyAppAndroid — Bugünkü Değişiklikler ve Yayın Notları (2025-10-08)
+
+## 🎯 Özet
+- **Otomatik sürümleme:**  
+  `versionCode = <versionNameSayısal> * 100_000 + yyMMddHH` (TZ: *Europe/Istanbul*).
+- **`BuildConfig.BASE_URL`:**  
+  `-P BASE_URL=` ile dışarıdan verilebilir; verilmezse `http://10.0.2.2:8000/`.
+- **APK isimlendirme (post-build):**  
+  Derleme sonrası APK kopyalanıp şu formatta adlandırılır:  
+  `moneyapp-<versionName>-<versionCode>-<yyMMddHH>-<variant>.apk`
+- **Google Sheets entegrasyonu:**  
+  Derleme sonrası sürüm bilgisi Apps Script webhook’una JSON olarak yazılıyor.
+- **Tema/Manifest temizliği:**  
+  Tek tema kullanımı: `Theme.MoneyApp` → `Theme.Material3.DayNight.NoActionBar`.  
+  Debug/Main manifest çakışması giderildi.
+- **Bağımlılıklar eklendi/güncellendi:** Material, Retrofit, OkHttp, Moshi, Room, Lifecycle, Coroutines.
+- **Dizin düzeltmesi:**  
+  APK yolu modülün `buildDir` üzerinden çözümleniyor (önceki `app/app/...` hatası giderildi).
+
+---
+
+## 🔢 Sürümleme Mantığı
+```kotlin
+val vn = \"1.3.7\" // tek kaynak
+versionName = vn
+val base  = vn.replace(\".\", \"\").toInt()
+val stamp = LocalDateTime.now(ZoneId.of(\"Europe/Istanbul\"))
+              .format(DateTimeFormatter.ofPattern(\"yyMMddHH\")).toInt()
+versionCode = base * 100_000 + stamp
+```
+
+## 🧱 `BuildConfig.BASE_URL`
+- Komut satırından:
+  ```bash
+  ./gradlew :app:assembleDebug -P BASE_URL=https://api.example.com/
+  ```
+- Verilmezse varsayılan: `http://10.0.2.2:8000/`.
+
+---
+
+## 🧰 Gradle Görevleri
+
+### Derleme
+```bash
+# Debug / Release
+./gradlew :app:assembleDebug
+./gradlew :app:assembleRelease
+```
+
+### APK’ı sürüm + tarih damgasıyla yeniden adlandır
+```bash
+./gradlew :app:renameDebugApk
+./gradlew :app:renameReleaseApk
+```
+> Çıktı: `app/build/outputs/apk/<variant>/moneyapp-<vn>-<vc>-<ts>-<variant>.apk`
+
+### Sheets’e yazma (webhook)
+- Görev: `postVersionToSheet`
+- JSON alanları: `versionCode`, `versionName`, `apkUrl` (`asset_url` eşdeğeri).
+
+Gerekli gizli değerler (kullanıcı makinesinde):
+```
+~/.gradle/gradle.properties
+--------------------------------
+SHEET_WEBHOOK_URL=https://script.google.com/macros/s/…/exec
+APK_PUBLISH_URL=https://…/releases/download/…/moneyapp-….apk
+```
+
+### Zincirli akışlar (kolay kullanım)
+```bash
+# assembleDebug → renameDebugApk → postVersionToSheet
+./gradlew :app:buildDebugAndPost
+
+# assembleRelease → renameReleaseApk → postVersionToSheet
+./gradlew :app:publishReleaseApk
+```
+
+---
+
+## 🎨 Tema & Manifest
+- Tema dosyası (`app/src/main/res/values/themes.xml`):
+  ```xml
+  <resources>
+      <style name=\"Theme.MoneyApp\" parent=\"Theme.Material3.DayNight.NoActionBar\"/>
+  </resources>
+  ```
+- Manifest (tek tema, main’de tanımlı):
+  ```xml
+  <application
+      android:name=\".MoneyApp\"
+      android:theme=\"@style/Theme.MoneyApp\"
+      android:usesCleartextTraffic=\"true\"
+      android:networkSecurityConfig=\"@xml/network_security_config\" />
+  ```
+
+---
+
+## 📦 Bağımlılık Seti (başlıca)
+- Material `1.12.0`
+- Retrofit `2.11.0` (+ `converter-scalars`, `converter-moshi`)
+- OkHttp `4.12.0` (+ `logging-interceptor`)
+- Moshi `1.15.1` (+ `moshi-kotlin`)
+- Room `2.6.1` (+ `ksp room-compiler`)
+- Lifecycle `2.8.6` (`runtime-ktx`, `viewmodel-ktx`)
+- Coroutines `1.8.1`
+
+---
+
+## ⚠️ Derleme Notları
+- `compileSdk = 36` uyarısı için geçici çözüm:
+  ```
+  android.suppressUnsupportedCompileSdk=36
+  ```
+  (veya `compileSdk = 35`.)
+
+---
+
+## 🗑️ `.gitignore` Önerisi (özet)
+```gitignore
+.gradle/"
 }

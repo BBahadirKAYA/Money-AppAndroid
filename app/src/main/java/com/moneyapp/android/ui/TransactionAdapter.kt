@@ -18,6 +18,9 @@ import java.util.*
 class TransactionAdapter :
     ListAdapter<TransactionEntity, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
 
+    // ✅ EKLENDİ: Liste öğesi tıklama callback’i
+    var onItemClick: ((TransactionEntity) -> Unit)? = null
+
     class TransactionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val descriptionTextView: TextView = itemView.findViewById(R.id.tv_description)
         private val amountTextView: TextView = itemView.findViewById(R.id.tv_amount)
@@ -27,7 +30,7 @@ class TransactionAdapter :
             // Açıklama
             descriptionTextView.text = tx.description.orEmpty()
 
-            // TL formatı (kuruş -> TL, 1.234.567 ₺), ekranda işaret ayrı verilecek
+            // TL formatı (kuruş -> TL, 1.234.567 ₺)
             val formattedAbs = formatAmountTL(absTL(tx.amountCents))
 
             // Renk ve işaret
@@ -49,7 +52,7 @@ class TransactionAdapter :
         private fun absTL(amountCents: Long): Long = kotlin.math.abs(amountCents) / 100L
 
         private fun formatAmountTL(tl: Long): String {
-            val locale = Locale.forLanguageTag("tr-TR") // ✅ modern, deprecated değil
+            val locale = Locale.forLanguageTag("tr-TR")
             val nf = NumberFormat.getInstance(locale).apply {
                 maximumFractionDigits = 0
                 isGroupingUsed = true
@@ -58,12 +61,10 @@ class TransactionAdapter :
         }
 
         private fun formatDate(epochMillis: Long): String {
-            val locale = Locale.forLanguageTag("tr-TR") // aynı locale tekrar kullanılıyor
+            val locale = Locale.forLanguageTag("tr-TR")
             val sdf = SimpleDateFormat("dd.MM.yyyy", locale)
             return sdf.format(Date(epochMillis))
         }
-
-
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
@@ -73,7 +74,11 @@ class TransactionAdapter :
     }
 
     override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val item = getItem(position)
+        holder.bind(item)
+
+        // ✅ EKLENDİ: öğe tıklaması
+        holder.itemView.setOnClickListener { onItemClick?.invoke(item) }
     }
 }
 

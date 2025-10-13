@@ -1,20 +1,20 @@
+// app/src/main/java/com/moneyapp/android/ui/MainActivity.kt
 package com.moneyapp.android.ui
 
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import android.os.Bundle
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.moneyapp.android.MoneyApp
 import com.moneyapp.android.R
-import kotlinx.coroutines.launch
-
-// ↓ Eklenen importlar
-import android.widget.Button
 import com.moneyapp.android.update.UpdateChecker
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,33 +25,32 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Application sınıfından ViewModelFactory'yi alıyoruz
         val factory = (application as MoneyApp).mainViewModelFactory
-
-        // 2. Factory'yi kullanarak ViewModel'i oluşturuyoruz
         viewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
 
-        // 3. RecyclerView'ı ve Adapter'ı ayarlıyoruz
         setupRecyclerView()
-
-        // 4. ViewModel'den gelen veri akışını dinleyip listeyi güncelliyoruz
         observeTransactions()
 
-        // 5. Güncelleme kontrol butonu (activity_main.xml'deki btnCheckUpdate)
         findViewById<Button>(R.id.btnCheckUpdate)?.setOnClickListener {
-            lifecycleScope.launch {
-                UpdateChecker.checkAndPrompt(this@MainActivity)
-            }
+            lifecycleScope.launch { UpdateChecker.checkAndPrompt(this@MainActivity) }
+        }
+
+        findViewById<FloatingActionButton>(R.id.fabAdd)?.setOnClickListener {
+            TransactionEditBottomSheet.newInstance()
+                .show(supportFragmentManager, "tx_edit")
         }
     }
 
     private fun setupRecyclerView() {
-        transactionAdapter = TransactionAdapter()
-        val recyclerView: RecyclerView = findViewById(R.id.rv_transactions)
-        recyclerView.apply {
-            adapter = transactionAdapter
-            layoutManager = LinearLayoutManager(this@MainActivity)
+        transactionAdapter = TransactionAdapter().apply {
+            onItemClick = { tx ->
+                TransactionEditBottomSheet.newInstance(tx.localId)
+                    .show(supportFragmentManager, "tx_edit")
+            }
         }
+        val rv: RecyclerView = findViewById(R.id.rv_transactions)
+        rv.adapter = transactionAdapter
+        rv.layoutManager = LinearLayoutManager(this)
     }
 
     private fun observeTransactions() {

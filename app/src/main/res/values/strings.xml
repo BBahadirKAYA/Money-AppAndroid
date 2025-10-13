@@ -1,4 +1,9 @@
+<!-- app/src/main/res/values/strings.xml -->
 <resources>
     <string name="app_name">MoneyApp</string>
     <string name="webview_loading">Yükleniyor…</string>
+
+    <!-- Yeni eklenenler -->
+    <string name="check_update">Güncelleme kontrol et</string>
+    <string name="add_transaction">Yeni işlem</string>
 </resources>

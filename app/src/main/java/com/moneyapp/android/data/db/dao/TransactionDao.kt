@@ -8,18 +8,27 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TransactionDao {
 
-    // ---- CUD ----
+    // ---- CREATE / UPDATE / DELETE ----
+
+    /** UI tabanlı “sadece ekle” — kasti yinelenmelerde hata versin */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(tx: TransactionEntity): Long
+
+    /** Uzak senkron / upsert */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdate(tx: TransactionEntity): Long
 
+    /** Tam satır güncelleme — etkilenen satır sayısı döner */
     @Update
-    suspend fun update(tx: TransactionEntity)
+    suspend fun update(tx: TransactionEntity): Int
 
+    /** Soft delete — etkilenen satır sayısı döner */
     @Query("UPDATE transactions SET deleted = 1, dirty = 1 WHERE localId = :id")
-    suspend fun softDelete(id: Long)
+    suspend fun softDeleteById(id: Long): Int
 
     // ---- Queries ----
-    @Query("SELECT * FROM transactions WHERE localId = :id")
+
+    @Query("SELECT * FROM transactions WHERE localId = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
     @Query("""
@@ -29,13 +38,14 @@ interface TransactionDao {
     """)
     fun getAll(): Flow<List<TransactionEntity>>
 
+    /** Gün içi tüm kayıtlar (start–end) */
     @Query("""
         SELECT * FROM transactions 
         WHERE deleted = 0 
-          AND date = :day 
+          AND date BETWEEN :dayStart AND :dayEnd
         ORDER BY localId DESC
     """)
-    fun getByDay(day: Long): Flow<List<TransactionEntity>>
+    fun getByDay(dayStart: Long, dayEnd: Long): Flow<List<TransactionEntity>>
 
     @Query("""
         SELECT * FROM transactions 
@@ -61,6 +71,7 @@ interface TransactionDao {
         toMillis: Long
     ): Flow<List<TransactionEntity>>
 
+    /** Basit arama — ileride FTS’e taşıyabiliriz */
     @Query("""
         SELECT * FROM transactions
         WHERE deleted = 0
@@ -72,9 +83,21 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE dirty = 1")
     suspend fun getDirty(): List<TransactionEntity>
+
     @Transaction
     suspend fun replaceAll(transactions: List<TransactionEntity>) {
         transactions.forEach { insertOrUpdate(it) }
     }
 
+    // (Opsiyonel) Net bakiye akışı (gelir – gider), deleted=0 filtreli
+    @Query("""
+        SELECT COALESCE(SUM(
+            CASE 
+                WHEN type = 'INCOME' THEN amountCents
+                WHEN type = 'EXPENSE' THEN -amountCents
+                ELSE 0
+            END
+        ), 0) FROM transactions WHERE deleted = 0
+    """)
+    fun observeNetBalanceCents(): Flow<Long>
 }

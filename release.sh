@@ -256,6 +256,7 @@ git push origin "${TAG}" || note "${TAG} push atlandı/uzakta olabilir."
 # ──────────────────────────────────────────────────────────────────────────────
 # 11) GitHub Release (gh varsa)
 # ──────────────────────────────────────────────────────────────────────────────
+unset GH_REPO
 if command -v gh >/dev/null 2>&1; then
   sec "GitHub release…"
   RN_ARG=()

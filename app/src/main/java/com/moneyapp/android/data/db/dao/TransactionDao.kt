@@ -100,4 +100,20 @@ interface TransactionDao {
         ), 0) FROM transactions WHERE deleted = 0
     """)
     fun observeNetBalanceCents(): Flow<Long>
+
+    // 🔹 1. Dirty kayıtları getir (sunucuya gönderilecek)
+    @Query("SELECT * FROM transactions WHERE dirty = 1 AND deleted = 0")
+    suspend fun getDirtyTransactions(): List<TransactionEntity>
+
+    // 🔹 2. Listeyi upsert et (insert or replace)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(list: List<TransactionEntity>)
+
+    // 🔹 3. Gönderilen kayıtları temizle (dirty=false)
+    @Query("UPDATE transactions SET dirty = 0 WHERE uuid IN (:uuids)")
+    suspend fun markAllClean(uuids: List<String>)
+
+    // 🔹 4. Soft delete işlemi
+    @Query("UPDATE transactions SET deleted = 1, dirty = 1 WHERE uuid = :uuid")
+    suspend fun softDelete(uuid: String)
 }

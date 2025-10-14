@@ -1,4 +1,3 @@
-// app/src/main/java/com/moneyapp/android/ui/MainActivity.kt
 package com.moneyapp.android.ui
 
 import android.os.Bundle
@@ -25,16 +24,36 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // 🧩 ViewModel (MoneyApp üzerinden Factory ile)
         val factory = (application as MoneyApp).mainViewModelFactory
         viewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
 
         setupRecyclerView()
         observeTransactions()
 
+        // 🔄 Güncelleme kontrol butonu
         findViewById<Button>(R.id.btnCheckUpdate)?.setOnClickListener {
             lifecycleScope.launch { UpdateChecker.checkAndPrompt(this@MainActivity) }
         }
 
+        // 🌐 Laravel senkron butonu
+        findViewById<Button>(R.id.btnSyncServer)?.setOnClickListener { btn ->
+            val syncButton = btn as Button
+            lifecycleScope.launch {
+                syncButton.isEnabled = false
+                syncButton.text = "Senkronize ediliyor..."
+                try {
+                    viewModel.syncWithServer()
+                    syncButton.text = "Senkron tamamlandı ✅"
+                } catch (e: Exception) {
+                    syncButton.text = "Senkron hata: ${e.message}"
+                } finally {
+                    syncButton.isEnabled = true
+                }
+            }
+        }
+
+        // ➕ Yeni işlem ekleme FAB
         findViewById<FloatingActionButton>(R.id.fabAdd)?.setOnClickListener {
             TransactionEditBottomSheet.newInstance()
                 .show(supportFragmentManager, "tx_edit")

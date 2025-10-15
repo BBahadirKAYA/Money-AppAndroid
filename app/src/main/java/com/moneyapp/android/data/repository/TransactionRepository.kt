@@ -13,11 +13,23 @@ class TransactionRepository(
     fun getAllTransactions(): Flow<List<TransactionEntity>> = dao.getAll()
 
     suspend fun insert(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
-        dao.insert(transaction)
+        // ✅ Eğer tarih alanı boş veya 0 ise, otomatik şu anki zamanı ata
+        val now = System.currentTimeMillis()
+        val finalTx = if (transaction.date <= 0L) {
+            transaction.copy(
+                date = now,
+                updatedAtLocal = now
+            )
+        } else {
+            transaction.copy(updatedAtLocal = now)
+        }
+
+        dao.insert(finalTx)
     }
 
     suspend fun update(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
-        dao.update(transaction)
+        // ✅ Güncellemede updatedAtLocal da yenilensin
+        dao.update(transaction.copy(updatedAtLocal = System.currentTimeMillis()))
     }
 
     suspend fun delete(transaction: TransactionEntity) = withContext(Dispatchers.IO) {

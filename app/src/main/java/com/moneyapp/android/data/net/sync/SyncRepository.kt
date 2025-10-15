@@ -6,6 +6,15 @@ import com.moneyapp.android.data.db.entities.CategoryType
 import com.moneyapp.android.data.db.entities.TransactionEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeParseException
+
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
+import java.util.Locale
+
 
 class SyncRepository(
     private val dao: TransactionDao,
@@ -27,20 +36,46 @@ class SyncRepository(
 
             val merged = remote.filterNot { it.uuid in localDirty }
                 .map { dto ->
+                    // 🧩 BURAYA EKLE
+                    Log.d(TAG, "Remote tarih: ${dto.occurred_at}")
+
+
+                    val dateMillis = try {
+                        dto.occurred_at?.let {
+                            val formatter = DateTimeFormatter
+                                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.US)
+                                .withZone(ZoneId.of("UTC"))
+
+                            val instant = formatter.parse(it, Instant::from)
+                            instant.atZone(ZoneId.systemDefault())
+                                .toInstant()
+                                .toEpochMilli()
+                        } ?: System.currentTimeMillis()
+                    } catch (e: DateTimeParseException) {
+                        Log.w(TAG, "Tarih parse hatası: ${dto.occurred_at}", e)
+                        System.currentTimeMillis()
+                    }
+
+
+
                     TransactionEntity(
                         uuid = dto.uuid,
                         amountCents = ((dto.amount ?: 0.0) * 100).toLong(),
                         currency = dto.currency ?: "TRY",
-                        type = CategoryType.EXPENSE,
-                        description = null, // Laravel’de note varsa: dto.note
-                        accountId = null,
-                        categoryId = null,
-                        date = System.currentTimeMillis(),
+                        type = when (dto.type?.lowercase()) {
+                            "income" -> CategoryType.INCOME
+                            else -> CategoryType.EXPENSE
+                        },
+                        description = dto.note,
+                        accountId = dto.account_id,
+                        categoryId = dto.category_id,
+                        date = dateMillis,
                         deleted = dto.deleted,
                         dirty = false
                     )
 
                 }
+
 
             dao.replaceAll(merged)
             Log.d(TAG, "Room’a ${merged.size} kayıt yazıldı.")
@@ -67,7 +102,7 @@ class SyncRepository(
                     amount = tx.amountCents / 100.0,
                     currency = tx.currency,
                     deleted = tx.deleted,
-                    updatedAt = "2025-10-14T00:00:00Z" // TODO: gerçek zaman
+                    updated_at = "2025-10-14T00:00:00Z"
                 )
             }
 

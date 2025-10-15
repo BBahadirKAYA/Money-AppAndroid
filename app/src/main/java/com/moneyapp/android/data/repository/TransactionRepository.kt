@@ -1,10 +1,12 @@
 package com.moneyapp.android.data.repository
-
+import android.util.Log
 import com.moneyapp.android.data.db.dao.TransactionDao
 import com.moneyapp.android.data.db.entities.TransactionEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+
+
 
 class TransactionRepository(
     private val dao: TransactionDao
@@ -13,6 +15,8 @@ class TransactionRepository(
     fun getAllTransactions(): Flow<List<TransactionEntity>> = dao.getAll()
 
     suspend fun insert(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
+        Log.d("MoneyApp", "Insert çağrıldı: date=${transaction.date}")
+
         // ✅ Eğer tarih alanı boş veya 0 ise, otomatik şu anki zamanı ata
         val now = System.currentTimeMillis()
         val finalTx = if (transaction.date <= 0L) {

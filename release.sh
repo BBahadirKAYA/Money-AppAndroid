@@ -133,7 +133,7 @@ ALIGNED_APK="app/build/outputs/apk/release/app-release-aligned.apk"
 sec "zipalign → $ALIGNED_APK"
 "$ZIPALIGN" -p -f 4 "$UNSIGNED_APK" "$ALIGNED_APK"
 
-SIGNED_APK="app-release.apk"
+SIGNED_APK="app/build/outputs/apk/release/app-release.apk"
 sec "apksigner sign → $SIGNED_APK"
 "$APKSIGNER" sign \
   --ks "$KS_FILE" \
@@ -144,7 +144,8 @@ sec "apksigner sign → $SIGNED_APK"
   "$ALIGNED_APK"
 
 ok "İmza doğrulama"
-"$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
+"$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK" || die "İmza doğrulanamadı!"
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 8) İsimlendir, hashle, dist'e taşı

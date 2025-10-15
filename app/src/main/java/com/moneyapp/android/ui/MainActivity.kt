@@ -3,7 +3,6 @@ package com.moneyapp.android.ui
 import android.os.Bundle
 import android.widget.Button
 import androidx.activity.ComponentActivity
-import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -12,6 +11,7 @@ import com.moneyapp.android.MoneyApp
 import com.moneyapp.android.R
 import com.moneyapp.android.data.db.entities.TransactionEntity
 import kotlinx.coroutines.launch
+import com.google.android.material.snackbar.Snackbar
 
 class MainActivity : ComponentActivity() {
 
@@ -29,6 +29,13 @@ class MainActivity : ComponentActivity() {
         val recyclerView = findViewById<RecyclerView>(R.id.rv_transactions)
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
+
+        // ✅ AÇILIŞTA OTOMATİK SENKRON
+        lifecycleScope.launch {
+            Snackbar.make(findViewById(android.R.id.content), "⏳ Senkronize ediliyor...", Snackbar.LENGTH_SHORT).show()
+            viewModel.syncWithServer()
+            Snackbar.make(findViewById(android.R.id.content), "✅ Güncellendi", Snackbar.LENGTH_SHORT).show()
+        }
 
         lifecycleScope.launch {
             viewModel.allTransactions.collect {
@@ -51,4 +58,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }

@@ -1,4 +1,4 @@
-/*package com.moneyapp.android.ui
+package com.moneyapp.android.ui
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -23,7 +23,7 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
 
     private val vm: MainViewModel by activityViewModels()
 
-    private var editingId: Long? = null
+    private var editingEntity: TransactionEntity? = null
     private var selectedDateMillis: Long = System.currentTimeMillis()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -33,45 +33,18 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
 
     override fun getTheme(): Int = R.style.AppBottomSheetDialog
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        editingId = arguments?.getLong(ARG_LOCAL_ID)?.takeIf { it != 0L }
-
-        // Tarih alanı
         binding.etDate.setText(formatDate(selectedDateMillis))
         binding.etDate.setOnClickListener { showDatePicker() }
 
-        // Amount değişimi
         binding.etAmount.doAfterTextChanged {
             binding.tilAmount.error = null
         }
 
-        // Düzenleme ise veriyi yükle
-        if (editingId != null) {
-            vm.loadTransactionById(editingId!!) { tx ->
-                if (tx != null) {
-                    selectedDateMillis = tx.date
-                    binding.etDate.setText(formatDate(tx.date))
-                    binding.etAmount.setText((tx.amountCents / 100.0).toString())
-                    binding.etDesc.setText(tx.description ?: "")
-                    if (tx.type == CategoryType.INCOME) {
-                        binding.rbIncome.isChecked = true
-                    } else {
-                        binding.rbExpense.isChecked = true
-                    }
-                    binding.btnDelete.visibility = View.VISIBLE
-                }
-            }
-        }
-
-        binding.btnDelete.setOnClickListener {
-            editingId?.let { id ->
-                vm.deleteTransactionById(id)
-                dismiss()
-            }
-        }
+        // 🔧 Henüz edit özelliği yok, yalnızca yeni kayıt
+        binding.btnDelete.visibility = View.GONE
 
         binding.btnCancel.setOnClickListener { dismiss() }
 
@@ -87,23 +60,20 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
             val desc = binding.etDesc.text?.toString()?.trim().takeUnless { it.isNullOrEmpty() }
 
             val entity = TransactionEntity(
-                localId = editingId ?: 0L,
+                localId = 0L,
                 amountCents = amountCents,
                 currency = "TRY",
                 type = type,
                 description = desc,
                 accountId = null,
                 categoryId = null,
-                date = selectedDateMillis,
+                date = selectedDateMillis.takeIf { it > 0L } ?: System.currentTimeMillis(),
                 deleted = false,
                 dirty = true
             )
 
-            if (editingId == null) {
-                vm.insertTransaction(entity)
-            } else {
-                vm.updateTransaction(entity)
-            }
+            // ✅ Güncel API'ye uygun çağrı
+            vm.insert(entity)
             dismiss()
         }
     }
@@ -137,10 +107,8 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
     }
 
     companion object {
-        private const val ARG_LOCAL_ID = "arg_local_id"
-        fun newInstance(localId: Long? = null) = TransactionEditBottomSheet().apply {
-            arguments = bundleOf(ARG_LOCAL_ID to (localId ?: 0L))
+        fun newInstance() = TransactionEditBottomSheet().apply {
+            arguments = bundleOf()
         }
     }
 }
-*/

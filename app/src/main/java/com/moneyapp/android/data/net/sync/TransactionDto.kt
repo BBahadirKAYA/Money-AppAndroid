@@ -12,10 +12,10 @@ data class TransactionDto(
     val uuid: String? = null,
 
     @SerialName("account_id")
-    val accountId: Long? = null,
+    val account_id: Long? = null,
 
     @SerialName("category_id")
-    val categoryId: Long? = null,
+    val category_id: Long? = null,
 
     @SerialName("type")
     val type: String? = null,
@@ -33,8 +33,8 @@ data class TransactionDto(
     val note: String? = null,
 
     @SerialName("occurred_at")
-    val occurredAt: String? = null,
+    val occurred_at: String? = null,
 
     @SerialName("updated_at")
-    val updatedAt: String? = null
+    val updated_at: String? = null
 )

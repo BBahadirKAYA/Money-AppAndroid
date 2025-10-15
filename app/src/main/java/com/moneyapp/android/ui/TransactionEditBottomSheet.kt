@@ -1,4 +1,4 @@
-package com.moneyapp.android.ui
+/*package com.moneyapp.android.ui
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -143,3 +143,4 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
         }
     }
 }
+*/

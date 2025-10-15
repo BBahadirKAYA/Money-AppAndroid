@@ -3,34 +3,38 @@ package com.moneyapp.android.data.net.sync
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/**
- * Laravel API ile veri alışverişi için DTO (Data Transfer Object)
- *
- * Bu model TransactionEntity'nin sadeleştirilmiş bir yansımasıdır.
- * Backend tarafında JSON şu şekilde beklenir:
- * {
- *   "uuid": "tx-123",
- *   "amount": 150.50,
- *   "currency": "TRY",
- *   "deleted": false,
- *   "updated_at": "2025-10-14T08:00:00Z"
- * }
- */
-
 @Serializable
 data class TransactionDto(
+    @SerialName("id")
+    val id: Long? = null,
+
     @SerialName("uuid")
-    val uuid: String,
+    val uuid: String? = null,
+
+    @SerialName("account_id")
+    val accountId: Long? = null,
+
+    @SerialName("category_id")
+    val categoryId: Long? = null,
+
+    @SerialName("type")
+    val type: String? = null,
 
     @SerialName("amount")
-    val amount: Double,
+    val amount: Double? = null,
 
     @SerialName("currency")
-    val currency: String = "TRY",
+    val currency: String? = "TRY",
 
     @SerialName("deleted")
     val deleted: Boolean = false,
 
+    @SerialName("note")
+    val note: String? = null,
+
+    @SerialName("occurred_at")
+    val occurredAt: String? = null,
+
     @SerialName("updated_at")
-    val updatedAt: String
+    val updatedAt: String? = null
 )

@@ -59,17 +59,21 @@ object ApiClient {
     private var currentBaseUrl: String = ensureSlash(BuildConfig.BASE_URL)
 
     private fun buildRetrofit(base: String): Retrofit {
+        // Base URL doğrudan dışarıdan gelen URL olsun (Laravel zaten /api içeriyor)
         val normalized = ensureSlash(base)
-        Log.i(TAG_API, "Using BASE_URL = $normalized") // 👈 kanıt: Logcat’te görünecek
+        Log.i(TAG_API, "Using BASE_URL = $normalized") // 👈 kontrol için Logcat’te göreceğiz
+
         return Retrofit.Builder()
             .baseUrl(normalized)
             .client(http)
-            // String (ping gibi uçlar) için önce
+            // String uçlar için
             .addConverterFactory(ScalarsConverterFactory.create())
-            // JSON için sonra
+            // JSON uçlar için
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
     }
+
+
 
     // Dışarıya servis
     val api: ApiService
@@ -94,4 +98,5 @@ object ApiClient {
         currentBaseUrl = normalized
         Log.i(TAG_API, "updateBaseUrl: switched to $currentBaseUrl")
     }
+    fun getRetrofit(): Retrofit = retrofit
 }

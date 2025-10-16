@@ -6,6 +6,8 @@ import androidx.room.PrimaryKey
 import com.moneyapp.android.data.net.sync.TransactionNetworkModel
 import java.text.SimpleDateFormat
 import java.util.*
+import com.moneyapp.android.data.net.sync.TransactionDto
+
 
 
 @Entity(
@@ -41,17 +43,37 @@ data class TransactionEntity(
 )
 
 fun TransactionEntity.toNetworkModel(): TransactionNetworkModel {
-    val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+    // Laravel ISO formatı: yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.US)
         .apply { timeZone = TimeZone.getTimeZone("UTC") }
-        .format(Date(this.date))
+    val isoDate = dateFormat.format(Date(this.date))
 
     return TransactionNetworkModel(
         uuid = this.uuid,
         account_id = this.accountId,
         category_id = this.categoryId,
-        type = this.type.name.lowercase(),       // örnek: "income" veya "expense"
-        amount = this.amountCents / 100.0,       // kuruş → TL
+        type = this.type.name.lowercase(),  // "income" / "expense"
+        amount = this.amountCents / 100.0,  // kuruş → TL
         occurred_at = isoDate,
         note = this.description
     )
 }
+fun TransactionEntity.toDto(): TransactionDto {
+    val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        .apply { timeZone = TimeZone.getTimeZone("UTC") }
+        .format(Date(this.date))
+
+    return TransactionDto(
+        uuid = this.uuid,
+        account_id = this.accountId,
+        category_id = this.categoryId,
+        type = this.type.name.lowercase(),
+        amount = this.amountCents / 100.0,
+        currency = this.currency,
+        deleted = this.deleted,
+        note = this.description,
+        occurred_at = isoDate,
+        updated_at = isoDate
+    )
+}
+

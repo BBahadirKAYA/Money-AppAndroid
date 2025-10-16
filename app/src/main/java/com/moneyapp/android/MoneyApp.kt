@@ -7,51 +7,63 @@ import com.moneyapp.android.data.db.AppDatabase
 import com.moneyapp.android.data.net.ApiClient
 import com.moneyapp.android.data.net.sync.TransactionApi
 import com.moneyapp.android.data.net.sync.SyncRepository
-import com.moneyapp.android.data.repository.TransactionRepository
+import com.moneyapp.android.data.repository.*
+import com.moneyapp.android.data.db.entities.*
 import com.moneyapp.android.ui.MainViewModelFactory
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.firstOrNull
 
 class MoneyApp : Application() {
 
     private lateinit var localRepo: TransactionRepository
     private lateinit var syncRepo: SyncRepository
+    private lateinit var categoryRepo: CategoryRepository
+    private lateinit var accountRepo: AccountRepository
+
     lateinit var mainViewModelFactory: MainViewModelFactory
 
     override fun onCreate() {
         super.onCreate()
         Log.d("MoneyApp", "🚀 Application class loaded")
-        Log.d("MoneyApp", "🚀 onCreate başladı ✅")
 
         val prefs = Prefs(this)
         val startUrl = prefs.getBackendUrl() ?: BuildConfig.BASE_URL
         ApiClient.updateBaseUrl(startUrl)
-        Log.d("MoneyApp", "🌐 Startup base URL: $startUrl")
 
         val database = AppDatabase.getInstance(this)
         val dao = database.transactionDao()
 
         val api = ApiClient.getRetrofit().create(TransactionApi::class.java)
 
-        localRepo = TransactionRepository(dao, api)   // 👈 api parametresi eklendi
+        // 🔹 Repository'ler
+        localRepo = TransactionRepository(dao, api)
         syncRepo = SyncRepository(dao, api)
-        mainViewModelFactory = MainViewModelFactory(localRepo, syncRepo)
+        categoryRepo = CategoryRepository(database.categoryDao())
+        accountRepo = AccountRepository(database.accountDao())
 
-        Log.d("MoneyApp", "🧩 Repositories hazır, coroutine başlatılacak")
+        mainViewModelFactory = MainViewModelFactory(localRepo, categoryRepo, accountRepo, syncRepo)
 
+        // 🔹 Örnek kategori & hesap kayıtlarını oluştur
         GlobalScope.launch(Dispatchers.IO) {
-            Log.d("MoneyApp", "🧭 GlobalScope.launch girdi")
-            delay(2000)
-            try {
-                Log.d("MoneyApp", "⏳ Laravel senkron başlatılıyor...")
-                val retrofit = ApiClient.getRetrofit()
-                Log.d("MoneyApp", "Retrofit base URL = ${retrofit.baseUrl()}")
-                syncRepo.pullFromServer()
-                Log.d("MoneyApp", "✅ Laravel senkron tamamlandı.")
-            } catch (e: Exception) {
-                Log.e("MoneyApp", "❌ İlk senkronizasyon hatası: ${e.message}", e)
+            val catDao = database.categoryDao()
+            val accDao = database.accountDao()
+
+            val cats = catDao.getAll().firstOrNull() ?: emptyList()
+            val accs = accDao.getAll().firstOrNull() ?: emptyList()
+
+            if (cats.isEmpty()) {
+                catDao.upsert(CategoryEntity(name = "Genel Gider", type = CategoryType.EXPENSE))
+                catDao.upsert(CategoryEntity(name = "Genel Gelir", type = CategoryType.INCOME))
+                Log.d("MoneyApp", "🟢 Varsayılan kategoriler eklendi")
+            }
+
+            if (accs.isEmpty()) {
+                accDao.upsert(AccountEntity(name = "Nakit"))
+                accDao.upsert(AccountEntity(name = "Banka"))
+                Log.d("MoneyApp", "🟢 Varsayılan hesaplar eklendi")
             }
         }
 
-        Log.d("MoneyApp", "🏁 onCreate sonu (main thread)")
+        Log.d("MoneyApp", "🏁 onCreate tamamlandı ✅")
     }
 }

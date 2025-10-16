@@ -9,6 +9,8 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeParseException
+import com.moneyapp.android.data.db.entities.toDto
+
 
 import java.time.format.DateTimeFormatter
 
@@ -94,16 +96,10 @@ class SyncRepository(
                 return@withContext
             }
 
-            val dtoList = dirtyList.mapNotNull { tx ->
-                val uuid = tx.uuid ?: return@mapNotNull null
-                TransactionDto(
-                    uuid = uuid,
-                    amount = tx.amountCents / 100.0,
-                    currency = tx.currency,
-                    deleted = tx.deleted,
-                    updated_at = "2025-10-14T00:00:00Z"
-                )
+            val dtoList = dirtyList.mapNotNull { tx: TransactionEntity ->
+                tx.toDto()
             }
+
 
             val resp = api.bulkUpsert(dtoList)
             if (resp.isSuccessful) {
@@ -116,6 +112,8 @@ class SyncRepository(
             Log.e(TAG, "pushDirtyToServer hata: ${e.message}", e)
         }
     }
+
+
 
     /**
      * 3) Remote soft delete + local işaretle.

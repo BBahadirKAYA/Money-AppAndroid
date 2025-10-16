@@ -24,40 +24,38 @@ class TransactionAdapter :
     class TransactionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val descriptionTextView: TextView = itemView.findViewById(R.id.tv_description)
         private val amountTextView: TextView = itemView.findViewById(R.id.tv_amount)
-        private val dateTextView: TextView? = itemView.findViewById(R.id.tv_date) // opsiyonel
+        private val dateTextView: TextView? = itemView.findViewById(R.id.tv_date)
 
         fun bind(tx: TransactionEntity) {
-            // Açıklama
             descriptionTextView.text = tx.description.orEmpty()
 
-            // TL formatı (kuruş -> TL, 1.234.567 ₺)
-            val formattedAbs = formatAmountTL(absTL(tx.amountCents))
-
-            // Renk ve işaret
-            val ctx = amountTextView.context
             val isIncome = tx.type == CategoryType.INCOME
-            val sign = if (isIncome) "+" else "-"
+            val ctx = amountTextView.context
             val colorRes = if (isIncome) R.color.amountPositive else R.color.amountNegative
             amountTextView.setTextColor(ContextCompat.getColor(ctx, colorRes))
-
-            // Tabular rakamlar ile hizalama
             amountTextView.fontFeatureSettings = "tnum"
-            amountTextView.text = "$sign$formattedAbs"
 
-            // Tarih (epoch millis)
+            // 🔹 Tutar kuruşsuz (sadece TL, tam sayı)
+            val sign = if (isIncome) "+ " else "− "
+            val formattedAmount = formatAmountTL(tx.amountCents)
+            amountTextView.text = "$sign$formattedAmount"
+
             dateTextView?.text = formatDate(tx.date)
         }
 
-        /** kuruş -> TL (mutlak değer, tam sayı TL) */
-        private fun absTL(amountCents: Long): Long = kotlin.math.abs(amountCents) / 100L
-
-        private fun formatAmountTL(tl: Long): String {
+        private fun formatAmountTL(amountCents: Long): String {
             val locale = Locale.forLanguageTag("tr-TR")
             val nf = NumberFormat.getInstance(locale).apply {
-                maximumFractionDigits = 0
-                isGroupingUsed = true
+                maximumFractionDigits = 0      // 🔹 kuruş gösterme
+                isGroupingUsed = true          // 🔹 binlik ayraç (1.234 ₺)
             }
-            return nf.format(tl) + " ₺"
+            val tlValue = txToLiras(amountCents)
+            return nf.format(tlValue) + " ₺"
+        }
+
+        private fun txToLiras(amountCents: Long): Long {
+            // 🔹 kuruşu at (örneğin 1250 → 12)
+            return kotlin.math.abs(amountCents) / 100L
         }
 
         private fun formatDate(epochMillis: Long): String {
@@ -66,6 +64,7 @@ class TransactionAdapter :
             return sdf.format(Date(epochMillis))
         }
     }
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
         val view = LayoutInflater.from(parent.context)

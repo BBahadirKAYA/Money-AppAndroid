@@ -3,8 +3,9 @@ package com.moneyapp.android.data.db.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.moneyapp.android.data.db.entities.CategoryType
-
+import com.moneyapp.android.data.net.sync.TransactionNetworkModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 @Entity(
@@ -38,3 +39,19 @@ data class TransactionEntity(
     val updatedAtLocal: Long = System.currentTimeMillis(),
     val updatedAtServer: Long? = null       // server timestamp
 )
+
+fun TransactionEntity.toNetworkModel(): TransactionNetworkModel {
+    val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        .apply { timeZone = TimeZone.getTimeZone("UTC") }
+        .format(Date(this.date))
+
+    return TransactionNetworkModel(
+        uuid = this.uuid,
+        account_id = this.accountId,
+        category_id = this.categoryId,
+        type = this.type.name.lowercase(),       // örnek: "income" veya "expense"
+        amount = this.amountCents / 100.0,       // kuruş → TL
+        occurred_at = isoDate,
+        note = this.description
+    )
+}

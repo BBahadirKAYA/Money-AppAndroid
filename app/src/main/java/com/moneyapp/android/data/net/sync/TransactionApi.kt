@@ -7,6 +7,15 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 
+data class TransactionNetworkModel(
+    val uuid: String,
+    val account_id: Long?,
+    val category_id: Long?,
+    val type: String,
+    val amount: Double,
+    val occurred_at: String,
+    val note: String?
+)
 /**
  * Laravel API ile transaction senkronizasyonu için Retrofit arabirimi.
  * Base URL -> ApiClient içinde (örnek: https://ngrok-url.ngrok-free.dev/)
@@ -28,6 +37,12 @@ interface TransactionApi {
     suspend fun delete(
         @Path("uuid") uuid: String
     ): Response<Unit>
+    /** Tek bir transaction kaydı oluşturur. */
+    @POST("api/transactions")
+    suspend fun create(
+        @Body item: TransactionNetworkModel
+    ): ResponseWrapper<TransactionNetworkModel>
+
 }
 
 /** Laravel’in "success":true,"data":[...] formatı için wrapper */

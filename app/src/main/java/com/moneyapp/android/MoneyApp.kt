@@ -29,9 +29,10 @@ class MoneyApp : Application() {
 
         val database = AppDatabase.getInstance(this)
         val dao = database.transactionDao()
-        localRepo = TransactionRepository(dao)
 
         val api = ApiClient.getRetrofit().create(TransactionApi::class.java)
+
+        localRepo = TransactionRepository(dao, api)   // 👈 api parametresi eklendi
         syncRepo = SyncRepository(dao, api)
         mainViewModelFactory = MainViewModelFactory(localRepo, syncRepo)
 

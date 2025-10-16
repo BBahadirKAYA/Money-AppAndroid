@@ -17,9 +17,12 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.DateFormatSymbols
 import java.util.UUID
+import androidx.appcompat.app.AppCompatActivity
+import com.moneyapp.android.ui.TransactionEditBottomSheet
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
+
 
     private lateinit var viewModel: MainViewModel
     private lateinit var adapter: TransactionAdapter
@@ -68,14 +71,10 @@ class MainActivity : ComponentActivity() {
 
         // ➕ Hızlı ekleme
         findViewById<FloatingActionButton>(R.id.fabAdd).setOnClickListener {
-            val dummyTx = TransactionEntity(
-                uuid = UUID.randomUUID().toString(), // ✅ benzersiz uuid ekle
-                description = "Yeni işlem",
-                amountCents = (1000..5000).random().toLong(),
-                date = System.currentTimeMillis()
-            )
-            viewModel.insert(dummyTx)
+            TransactionEditBottomSheet.newInstance()
+                .show(supportFragmentManager, "transaction_edit")
         }
+
 
         // 🌐 Manuel senkron butonu
         findViewById<Button>(R.id.btnSyncServer)?.setOnClickListener {

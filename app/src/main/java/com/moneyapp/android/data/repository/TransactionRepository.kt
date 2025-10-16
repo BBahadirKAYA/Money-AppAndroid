@@ -9,15 +9,24 @@ import kotlinx.coroutines.withContext
 
 
 class TransactionRepository(
-    private val dao: TransactionDao
+private val dao: TransactionDao
 ) {
 
     fun getAllTransactions(): Flow<List<TransactionEntity>> = dao.getAll()
 
+    // 🔹 AYLIK FİLTRELİ SORGULAMA
+    fun getTransactionsByMonth(yearStr: String, monthStr: String): Flow<List<TransactionEntity>> {
+        return dao.getTransactionsByMonth(yearStr, monthStr)
+    }
+
     suspend fun insert(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
         Log.d("MoneyApp", "Insert çağrıldı: date=${transaction.date}")
+        if (transaction.uuid.isBlank()) {
+            Log.w("MoneyApp", "⚠️ Boş UUID ile insert denemesi engellendi")
+            return@withContext
+        }
+        dao.insert(transaction.copy(updatedAtLocal = System.currentTimeMillis()))
 
-        // ✅ Eğer tarih alanı boş veya 0 ise, otomatik şu anki zamanı ata
         val now = System.currentTimeMillis()
         val finalTx = if (transaction.date <= 0L) {
             transaction.copy(
@@ -32,7 +41,6 @@ class TransactionRepository(
     }
 
     suspend fun update(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
-        // ✅ Güncellemede updatedAtLocal da yenilensin
         dao.update(transaction.copy(updatedAtLocal = System.currentTimeMillis()))
     }
 

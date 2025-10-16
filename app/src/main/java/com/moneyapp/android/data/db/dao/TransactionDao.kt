@@ -45,4 +45,17 @@ interface TransactionDao {
     suspend fun replaceAll(transactions: List<TransactionEntity>) {
         upsertAll(transactions)
     }
+
+    // ---- 📅 AYLIK FİLTRE ----
+    @Query("""
+        SELECT * FROM transactions
+        WHERE strftime('%Y', datetime(date / 1000, 'unixepoch', 'localtime')) = :yearStr
+          AND strftime('%m', datetime(date / 1000, 'unixepoch', 'localtime')) = :monthStr
+          AND deleted = 0
+        ORDER BY date DESC
+    """)
+    fun getTransactionsByMonth(
+        yearStr: String,
+        monthStr: String
+    ): Flow<List<TransactionEntity>>
 }

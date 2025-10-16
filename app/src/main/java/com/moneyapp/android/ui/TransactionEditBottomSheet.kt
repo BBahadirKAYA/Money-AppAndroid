@@ -15,6 +15,8 @@ import com.moneyapp.android.data.db.entities.TransactionEntity
 import com.moneyapp.android.databinding.BottomsheetTransactionEditBinding
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.UUID
+
 
 class TransactionEditBottomSheet : BottomSheetDialogFragment() {
 
@@ -61,6 +63,7 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
 
             val entity = TransactionEntity(
                 localId = 0L,
+                uuid = UUID.randomUUID().toString(), // ✅ benzersiz UUID
                 amountCents = amountCents,
                 currency = "TRY",
                 type = type,
@@ -71,6 +74,8 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
                 deleted = false,
                 dirty = true
             )
+
+
 
             // ✅ Güncel API'ye uygun çağrı
             vm.insert(entity)

@@ -10,7 +10,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeParseException
 
-import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 import java.util.Locale
@@ -59,7 +58,7 @@ class SyncRepository(
 
 
                     TransactionEntity(
-                        uuid = dto.uuid,
+                        uuid = dto.uuid!!, // ✅ zorunlu alan — null gelmemeli
                         amountCents = ((dto.amount ?: 0.0) * 100).toLong(),
                         currency = dto.currency ?: "TRY",
                         type = when (dto.type?.lowercase()) {

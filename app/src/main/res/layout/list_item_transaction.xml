@@ -2,19 +2,24 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="8dp">
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="4dp"
+    android:baselineAligned="false">
 
+    <!-- 📅 Tarih -->
     <TextView
         android:id="@+id/tv_date"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="6dp"
         android:maxLines="1"
         android:ellipsize="end"
         android:textAppearance="?attr/textAppearanceBodySmall"
-        android:textColor="?attr/colorOnSurfaceVariant" />
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:includeFontPadding="false"
+        android:lineSpacingExtra="0dp" />
 
+    <!-- 💬 Açıklama -->
     <TextView
         android:id="@+id/tv_description"
         android:layout_width="0dp"
@@ -23,15 +28,19 @@
         android:maxLines="1"
         android:ellipsize="end"
         android:textAppearance="?attr/textAppearanceBodyMedium"
-        android:textColor="?attr/colorOnSurface" />
+        android:textColor="?attr/colorOnSurface"
+        android:includeFontPadding="false"
+        android:lineSpacingExtra="0dp" />
 
-    <!-- Tabular rakamlar için fontFeatureSettings kullanılıyor -->
+    <!-- 💰 Tutar -->
     <TextView
         android:id="@+id/tv_amount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingStart="8dp"
+        android:paddingStart="6dp"
         android:gravity="end"
         android:textAppearance="?attr/textAppearanceBodyMedium"
-        android:fontFeatureSettings="tnum" />
+        android:fontFeatureSettings="tnum"
+        android:includeFontPadding="false"
+        android:lineSpacingExtra="0dp" />
 </LinearLayout>

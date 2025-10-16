@@ -7,6 +7,47 @@
     android:fitsSystemWindows="true"
     android:padding="12dp">
 
+    <!-- 📅 Ay başlığı + navigasyon -->
+    <LinearLayout
+        android:id="@+id/monthHeader"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageButton
+            android:id="@+id/btnPrevMonth"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_chevron_left_24"
+            android:contentDescription="@string/prev_month"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="?attr/colorOnSurface" />
+
+        <TextView
+            android:id="@+id/txtMonthTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="12dp"
+            android:text="Ekim 2025"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btnNextMonth"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_chevron_right_24"
+            android:contentDescription="@string/next_month"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="?attr/colorOnSurface" />
+
+    </LinearLayout>
+
     <!-- 🧾 Transaction listesi -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_transactions"
@@ -14,7 +55,7 @@
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:paddingBottom="120dp"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/monthHeader"
         app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

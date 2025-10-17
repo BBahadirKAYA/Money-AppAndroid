@@ -123,7 +123,8 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
                 dirty = true
             )
 
-            viewModel.insert(transaction)
+            viewModel.insertTransaction(transaction)
+
             dismiss()
         }
     }

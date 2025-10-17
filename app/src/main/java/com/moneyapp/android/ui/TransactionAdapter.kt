@@ -18,8 +18,9 @@ import java.util.*
 class TransactionAdapter :
     ListAdapter<TransactionEntity, TransactionAdapter.TransactionViewHolder>(TransactionDiffCallback()) {
 
-    // ✅ EKLENDİ: Liste öğesi tıklama callback’i
+    // ✅ Tek tıklama ve uzun basma callback'leri
     var onItemClick: ((TransactionEntity) -> Unit)? = null
+    var onItemLongClick: ((TransactionEntity) -> Unit)? = null
 
     class TransactionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val descriptionTextView: TextView = itemView.findViewById(R.id.tv_description)
@@ -35,8 +36,8 @@ class TransactionAdapter :
             amountTextView.setTextColor(ContextCompat.getColor(ctx, colorRes))
             amountTextView.fontFeatureSettings = "tnum"
 
-            // 🔹 Tutar kuruşsuz (sadece TL, tam sayı)
-            val sign = if (isIncome) "+ " else "− "
+            // 🔹 İşlem listesi gider odaklı olduğu için "−" işareti kaldırıldı
+            val sign = if (isIncome) "+ " else ""  // giderlerde işaret yok
             val formattedAmount = formatAmountTL(tx.amountCents)
             amountTextView.text = "$sign$formattedAmount"
 
@@ -46,15 +47,14 @@ class TransactionAdapter :
         private fun formatAmountTL(amountCents: Long): String {
             val locale = Locale.forLanguageTag("tr-TR")
             val nf = NumberFormat.getInstance(locale).apply {
-                maximumFractionDigits = 0      // 🔹 kuruş gösterme
-                isGroupingUsed = true          // 🔹 binlik ayraç (1.234 ₺)
+                maximumFractionDigits = 0
+                isGroupingUsed = true
             }
             val tlValue = txToLiras(amountCents)
             return nf.format(tlValue) + " ₺"
         }
 
         private fun txToLiras(amountCents: Long): Long {
-            // 🔹 kuruşu at (örneğin 1250 → 12)
             return kotlin.math.abs(amountCents) / 100L
         }
 
@@ -64,7 +64,6 @@ class TransactionAdapter :
             return sdf.format(Date(epochMillis))
         }
     }
-
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -76,8 +75,13 @@ class TransactionAdapter :
         val item = getItem(position)
         holder.bind(item)
 
-        // ✅ EKLENDİ: öğe tıklaması
         holder.itemView.setOnClickListener { onItemClick?.invoke(item) }
+
+        // ✅ Uzun basma (Düzenle / Sil menüsü)
+        holder.itemView.setOnLongClickListener {
+            onItemLongClick?.invoke(item)
+            true
+        }
     }
 }
 

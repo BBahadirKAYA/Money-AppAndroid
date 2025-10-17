@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.Flow
 interface TransactionDao {
 
     // ---- CRUD ----
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: TransactionEntity): Long
 
@@ -23,6 +22,11 @@ interface TransactionDao {
 
     // ---- QUERIES ----
 
+    // 🔹 Sadece görünür (silinmemiş) işlemler
+    @Query("SELECT * FROM transactions WHERE deleted = 0 ORDER BY date DESC")
+    fun getAllVisible(): Flow<List<TransactionEntity>>
+
+    // 🔹 Tüm işlemler (gerekirse senkronizasyon öncesi)
     @Query("SELECT * FROM transactions ORDER BY date DESC")
     fun getAll(): Flow<List<TransactionEntity>>
 
@@ -38,9 +42,15 @@ interface TransactionDao {
     @Query("UPDATE transactions SET dirty = 0 WHERE uuid IN (:uuids)")
     suspend fun markAllClean(uuids: List<String>)
 
-    @Query("UPDATE transactions SET deleted = 1 WHERE uuid = :uuid")
+    // 🔹 Soft delete: kullanıcı sildiğinde
+    @Query("UPDATE transactions SET deleted = 1, dirty = 1 WHERE uuid = :uuid")
     suspend fun softDelete(uuid: String)
 
+    // 🔹 Hard delete: sunucudan deleted=true geldiğinde
+    @Query("DELETE FROM transactions WHERE uuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
+
+    // 🔹 Sunucudan gelen kayıtları replace et (deleted=false olanlar)
     @Transaction
     suspend fun replaceAll(transactions: List<TransactionEntity>) {
         upsertAll(transactions)

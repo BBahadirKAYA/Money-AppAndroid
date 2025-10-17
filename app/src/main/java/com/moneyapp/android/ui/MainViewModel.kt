@@ -11,11 +11,10 @@ import com.moneyapp.android.data.repository.AccountRepository
 import com.moneyapp.android.data.net.sync.SyncRepository
 import com.moneyapp.android.data.net.ApiClient
 import com.moneyapp.android.data.net.sync.AccountApi
+import com.moneyapp.android.data.net.sync.CategoryApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
-import com.moneyapp.android.data.net.sync.CategoryApi
-
 
 class MainViewModel(
     private val repository: TransactionRepository,
@@ -31,7 +30,7 @@ class MainViewModel(
     val categories = categoryRepository.getAll()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    // 🔹 Hesaplar (MutableStateFlow olarak yeniden tanımlandı)
+    // 🔹 Hesaplar
     private val _accounts = MutableStateFlow<List<AccountEntity>>(emptyList())
     val accounts: StateFlow<List<AccountEntity>> = _accounts.asStateFlow()
 
@@ -49,24 +48,49 @@ class MainViewModel(
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // 🔹 CRUD işlemleri
-    fun insert(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.insert(transaction) }
+    // -----------------------------------------------------------
+    // 🧩 CRUD İşlemleri
+    // -----------------------------------------------------------
+
+    fun insertTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch {
+            repository.insert(transaction.copy(dirty = true))
+            Log.d("MainViewModel", "🟢 Yeni işlem eklendi: ${transaction.description}")
+        }
     }
 
-    fun update(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.update(transaction) }
+    fun updateTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch {
+            repository.update(transaction.copy(dirty = true))
+            Log.d("MainViewModel", "🟡 İşlem güncellendi: ${transaction.localId}")
+        }
     }
 
-    fun delete(transaction: TransactionEntity) {
-        viewModelScope.launch { repository.delete(transaction) }
+    fun softDelete(transaction: TransactionEntity) {
+        viewModelScope.launch {
+            repository.softDelete(transaction)
+            Log.d("MainViewModel", "🔴 Soft delete uygulandı: ${transaction.uuid}")
+        }
     }
+
+
+    // -----------------------------------------------------------
+    // 🔄 Senkronizasyon
+    // -----------------------------------------------------------
 
     fun syncWithServer() {
-        viewModelScope.launch { syncRepository.pullFromServer() }
+        viewModelScope.launch {
+            Log.d("MainViewModel", "🌐 Sunucuyla senkron başlatıldı…")
+            syncRepository.pushDirtyToServer()
+            syncRepository.pullFromServer()
+            Log.d("MainViewModel", "✅ Senkron tamamlandı.")
+        }
     }
 
-    // 🔹 Ay geçişleri
+    // -----------------------------------------------------------
+    // 📆 Ay geçişleri
+    // -----------------------------------------------------------
+
     fun nextMonth() {
         val (y, m) = _selectedYearMonth.value
         val cal = Calendar.getInstance().apply {
@@ -87,7 +111,10 @@ class MainViewModel(
         _selectedYearMonth.value = cal.get(Calendar.YEAR) to (cal.get(Calendar.MONTH) + 1)
     }
 
-    // 🔹 Sunucudan hesapları çek
+    // -----------------------------------------------------------
+    // ☁️ API'den hesap & kategori çekme
+    // -----------------------------------------------------------
+
     fun fetchAccountsFromServer() {
         viewModelScope.launch {
             try {
@@ -112,6 +139,7 @@ class MainViewModel(
             }
         }
     }
+
     fun fetchCategoriesFromServer() {
         viewModelScope.launch {
             try {
@@ -132,7 +160,6 @@ class MainViewModel(
                         )
                     }
                     Log.d("MainViewModel", "✅ ${mapped.size} kategori yüklendi (sunucudan)")
-                    // Dilersen Room’a kaydet
                     mapped.forEach { categoryRepository.insert(it) }
                 } else {
                     Log.e("MainViewModel", "❌ Kategori API hata: ${response.code()}")

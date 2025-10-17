@@ -1,11 +1,7 @@
 package com.moneyapp.android.data.net.sync
 
 import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.DELETE
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
+import retrofit2.http.*
 
 data class TransactionNetworkModel(
     val uuid: String,
@@ -14,39 +10,48 @@ data class TransactionNetworkModel(
     val type: String,
     val amount: Double,
     val occurred_at: String,
-    val note: String?
+    val note: String?,
+    val deleted: Boolean = false
 )
+
 /**
  * Laravel API ile transaction senkronizasyonu için Retrofit arabirimi.
  * Base URL -> ApiClient içinde (örnek: https://ngrok-url.ngrok-free.dev/)
  */
 interface TransactionApi {
 
-    /** Sunucudan tüm transaction kayıtlarını getirir. */
+    /** 🔹 Tüm kayıtları getir */
     @GET("api/transactions")
     suspend fun getAll(): ResponseWrapper<List<TransactionDto>>
 
-    /** Toplu ekleme veya güncelleme işlemi (bulk upsert). */
+    /** 🔹 Toplu ekleme veya güncelleme (bulk upsert) */
     @POST("api/transactions/bulk-upsert")
     suspend fun bulkUpsert(
         @Body items: List<TransactionDto>
     ): Response<Unit>
 
-    /** Belirtilen UUID'li kaydı soft delete yapar. */
+    /** 🔹 Tek bir kayıt oluştur veya güncelle */
+    @POST("api/transactions")
+    suspend fun createOrUpdate(
+        @Body item: TransactionDto
+    ): ResponseWrapper<TransactionDto>
+
+    /** 🔹 Tek bir kayıt güncelle (PUT /api/transactions/{uuid}) */
+    @PUT("api/transactions/{uuid}")
+    suspend fun update(
+        @Path("uuid") uuid: String,
+        @Body item: TransactionNetworkModel
+    ): ResponseWrapper<TransactionNetworkModel>
+
+    /** 🔹 Belirtilen UUID'li kaydı soft delete yapar. */
     @DELETE("api/transactions/{uuid}")
     suspend fun delete(
         @Path("uuid") uuid: String
     ): Response<Unit>
-    /** Tek bir transaction kaydı oluşturur. */
-    @POST("api/transactions")
-    suspend fun create(
-        @Body item: TransactionNetworkModel
-    ): ResponseWrapper<TransactionNetworkModel>
-
 }
 
 /** Laravel’in "success":true,"data":[...] formatı için wrapper */
 data class ResponseWrapper<T>(
-    val success: Boolean,
+    val success: Boolean = true,
     val data: T
 )

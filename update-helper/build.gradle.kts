@@ -6,7 +6,8 @@ plugins {
 }
 
 android {
-    namespace = "com.moneyapp.update"
+    namespace = "com.moneyapp.android.updatehelper"
+
     compileSdk = 36
     defaultConfig {
         minSdk = 24

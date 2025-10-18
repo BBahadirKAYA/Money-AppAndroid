@@ -80,6 +80,24 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSyncServer)?.setOnClickListener {
             lifecycleScope.launch { viewModel.syncWithServer() }
         }
+// ⚙️ Güncelleme kontrol et butonu
+        findViewById<Button>(R.id.btnCheckUpdate)?.setOnClickListener {
+            try {
+                // Eğer UpdateHelper companion object içinde statik metod sunuyorsa:
+                com.moneyapp.android.updatehelper.UpdateHelper.checkForUpdates(this)
+
+                // Eğer sınıf instance olarak çalışıyorsa şu satır geçerli:
+                // val helper = com.moneyapp.android.updatehelper.UpdateHelper(this)
+                // helper.checkForUpdates()
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Snackbar.make(findViewById(android.R.id.content),
+                    "Güncelleme kontrolü başarısız: ${e.message ?: "Bilinmeyen hata"}",
+                    Snackbar.LENGTH_SHORT
+                ).show()
+            }
+        }
 
         // 🧩 Uzun basma: Düzenle / Sil menüsü
         adapter.onItemLongClick = { transaction ->

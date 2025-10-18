@@ -169,6 +169,25 @@ class MainViewModel(
             }
         }
     }
+    // -----------------------------------------------------------
+    // 💰 Ödenen / Kalan Toplamları
+    // -----------------------------------------------------------
+
+    // Toplam ödenen tutar
+    val totalPaid: StateFlow<Double> = transactionsByMonth
+        .map { list ->
+            list.filter { it.paid } // veya it.paid == true
+                .sumOf { it.amountCents } / 100.0
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    // Toplam kalan tutar
+    val totalUnpaid: StateFlow<Double> = transactionsByMonth
+        .map { list ->
+            list.filter { !it.paid } // veya it.paid == false
+                .sumOf { it.amountCents } / 100.0
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     companion object {
         private fun currentYearMonth(): Pair<Int, Int> {

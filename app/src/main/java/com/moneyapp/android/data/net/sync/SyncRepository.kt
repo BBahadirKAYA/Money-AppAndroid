@@ -31,14 +31,12 @@ class SyncRepository(
             val remote = api.getAll().data
             Log.d(TAG, "🌐 Sunucudan ${remote.size} kayıt geldi")
 
-            // 1️⃣ Sunucudan hiç kayıt gelmediyse çık
             if (remote.isEmpty()) {
                 dao.deleteAll()
                 Log.w(TAG, "⚠️ Sunucu boş döndü — tüm local kayıtlar silindi.")
                 return@withContext
             }
 
-            // 2️⃣ DTO → Entity dönüşümü
             val entities = remote.mapNotNull { dto ->
                 if (dto.uuid == null || dto.deleted == true) return@mapNotNull null
 
@@ -70,11 +68,13 @@ class SyncRepository(
                     categoryId = dto.category_id,
                     date = dateMillis,
                     deleted = false,
-                    dirty = false
+                    dirty = false,
+
+                    // 💰 Laravel’den gelen paid_sum burada Room’a yazılıyor
+                    paidSum = ((dto.paid_sum ?: 0.0) * 100).toLong()
                 )
             }
 
-            // 3️⃣ Tüm local kayıtları sil → Sunucudan gelenleri yeniden yaz
             dao.deleteAll()
             dao.upsertAll(entities)
 

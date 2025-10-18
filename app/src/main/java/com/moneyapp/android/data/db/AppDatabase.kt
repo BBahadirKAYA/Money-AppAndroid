@@ -22,7 +22,7 @@ import com.moneyapp.android.data.db.entities.TransactionEntity
         CategoryEntity::class,
         RecurringRuleEntity::class
     ],
-    version = 4,            // şema değiştiyse artır; devde fallback aktif
+    version = 5,            // şema değiştiyse artır; devde fallback aktif
     exportSchema = false
 )
 @TypeConverters(CategoryTypeConverter::class)

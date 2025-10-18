@@ -58,6 +58,22 @@ class MainActivity : AppCompatActivity() {
                         adapter.submitList(list)
                     }
                 }
+                // 🟢 Toplam ödenen
+                launch {
+                    viewModel.totalPaid.collectLatest { total ->
+                        findViewById<TextView>(R.id.tvPaidTotal).text =
+                            "Ödenen: ${"%,.2f".format(total)} ₺"
+                    }
+                }
+
+                // 🔴 Toplam kalan
+                launch {
+                    viewModel.totalUnpaid.collectLatest { total ->
+                        findViewById<TextView>(R.id.tvRemainingTotal).text =
+                            "Kalan: ${"%,.2f".format(total)} ₺"
+                    }
+                }
+
             }
         }
 

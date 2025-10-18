@@ -23,6 +23,9 @@ data class TransactionDto(
     @SerialName("amount")
     val amount: Double? = null,
 
+    @SerialName("paid_sum")
+    val paid_sum: Double? = null,
+
     @SerialName("currency")
     val currency: String? = "TRY",
 

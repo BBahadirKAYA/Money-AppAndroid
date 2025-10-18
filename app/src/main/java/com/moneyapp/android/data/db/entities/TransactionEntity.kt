@@ -16,31 +16,35 @@ import com.moneyapp.android.data.net.sync.TransactionDto
         Index("date"),
         Index("accountId"),
         Index("categoryId"),
-        Index(value = ["uuid"], unique = true) // 🔒 benzersiz uuid
+        Index(value = ["uuid"], unique = true)
     ]
 )
 data class TransactionEntity(
     @PrimaryKey(autoGenerate = true)
     val localId: Long = 0L,
 
-    val uuid: String, // ✅ artık zorunlu — backend her kayıtta gönderiyor
-
-    val amountCents: Long,                  // kuruş cinsinden tutar (₺12.50 = 1250)
+    val uuid: String,
+    val amountCents: Long,
     val currency: String = "TRY",
-    val type: CategoryType = CategoryType.EXPENSE, // gelir/gider tipi
-
-    val description: String? = null,        // not veya açıklama
+    val type: CategoryType = CategoryType.EXPENSE,
+    val description: String? = null,
     val accountId: Long? = null,
     val categoryId: Long? = null,
+    val date: Long,
+    val deleted: Boolean = false,
+    val dirty: Boolean = true,
 
-    val date: Long,                         // epoch millis (occurred_at)
-    val deleted: Boolean = false,           // soft delete flag
-    val dirty: Boolean = true,              // senkron bekleyen değişiklik
+    // 💰 Ödeme bilgisi
+    val paidSum: Long? = 0L,   // kuruş cinsinden ödenen miktar
 
     val createdAtLocal: Long = System.currentTimeMillis(),
     val updatedAtLocal: Long = System.currentTimeMillis(),
-    val updatedAtServer: Long? = null       // server timestamp
-)
+    val updatedAtServer: Long? = null
+) {
+    // 🔹 computed (Room’a kaydedilmez)
+    val paid: Boolean
+        get() = (paidSum ?: 0L) > 0L
+}
 
 fun TransactionEntity.toNetworkModel(): TransactionNetworkModel {
     // Laravel ISO formatı: yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'
@@ -69,6 +73,7 @@ fun TransactionEntity.toDto(): TransactionDto {
         category_id = this.categoryId,
         type = this.type.name.lowercase(),
         amount = this.amountCents / 100.0,
+        paid_sum = (this.paidSum ?: 0L) / 100.0,
         currency = this.currency,
         deleted = this.deleted,
         note = this.description,

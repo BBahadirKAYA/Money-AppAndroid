@@ -9,6 +9,7 @@ data class TransactionNetworkModel(
     val category_id: Long?,
     val type: String,
     val amount: Double,
+    val paid_sum: Double? = 0.0,
     val occurred_at: String,
     val note: String?,
     val deleted: Boolean = false

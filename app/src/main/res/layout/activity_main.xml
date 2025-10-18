@@ -61,6 +61,39 @@
         app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+    <!-- Özet Paneli: Ödenen / Kalan -->
+    <LinearLayout
+        android:id="@+id/summaryPanel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="@drawable/bg_summary"
+        android:padding="10dp"
+        android:elevation="2dp"
+        app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tvPaidTotal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ödenen: ₺0"
+            android:textColor="@color/green_dark"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:paddingEnd="24dp" />
+
+        <TextView
+            android:id="@+id/tvRemainingTotal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Kalan: ₺0"
+            android:textColor="@color/red_dark"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+    </LinearLayout>
 
     <!-- Butonlar -->
     <com.google.android.material.button.MaterialButton

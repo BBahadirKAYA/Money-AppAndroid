@@ -28,6 +28,8 @@
     <color name="text_gray">#757575</color>
     <color name="accent_yellow">#FFF59D</color>
     <color name="fab_purple">#8E24AA</color>
+    <color name="green_dark">#3E7A48</color> <!-- zeytin yeşili -->
+    <color name="red_dark">#8B2E2E</color>   <!-- kiremit kırmızısı -->
 
         <!-- 🌲 Ana tonlar -->
         <color name="wood_light">#F5E6C4</color>       <!-- Açık ahşap -->

@@ -1,20 +1,23 @@
-<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
-    android:padding="12dp">
+    android:background="@drawable/bg_wood_texture"
+    android:padding="12dp"
+    android:paddingBottom="?attr/actionBarSize"
+    android:fitsSystemWindows="true">
 
-    <!-- 📅 Ay başlığı + navigasyon -->
+<!-- Mavi yerine koyu kahverengi başlık -->
     <LinearLayout
         android:id="@+id/monthHeader"
         android:orientation="horizontal"
         android:gravity="center"
+        android:background="@color/wood_dark"
+        android:paddingVertical="8dp"
+        android:elevation="2dp"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -24,80 +27,76 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_chevron_left_24"
-            android:contentDescription="@string/prev_month"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:tint="?attr/colorOnSurface" />
+            app:tint="@color/paper_white"
+            android:background="?attr/selectableItemBackgroundBorderless" />
 
         <TextView
             android:id="@+id/txtMonthTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="12dp"
             android:text="Ekim 2025"
-            android:textAppearance="?attr/textAppearanceTitleMedium"
-            android:textStyle="bold" />
+            android:textColor="@color/paper_white"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginHorizontal="12dp" />
+
 
         <ImageButton
             android:id="@+id/btnNextMonth"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_chevron_right_24"
-            android:contentDescription="@string/next_month"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:tint="?attr/colorOnSurface" />
-
+            app:tint="@color/paper_white"
+            android:background="?attr/selectableItemBackgroundBorderless" />
     </LinearLayout>
 
-    <!-- 🧾 Transaction listesi -->
+    <!-- Liste -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_transactions"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:clipToPadding="false"
         android:paddingBottom="120dp"
+        android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/monthHeader"
         app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 🌐 Laravel senkron butonu -->
+    <!-- Butonlar -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSyncServer"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Senkronize Et (Laravel)"
-        android:textAllCaps="false"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="4dp"
+        android:backgroundTint="@color/leaf_green"
+        android:textColor="@color/paper_white"
+        app:cornerRadius="16dp"
+        android:elevation="3dp"
         app:icon="@drawable/ic_sync_24"
-        app:iconPadding="8dp"
-        app:iconGravity="textStart"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:iconTint="@color/paper_white"
         app:layout_constraintBottom_toTopOf="@id/btnCheckUpdate" />
 
-    <!-- 🔄 Uygulama güncelleme butonu -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnCheckUpdate"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/check_update"
-        android:textAllCaps="false"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:text="Güncelleme kontrol et"
+        android:backgroundTint="@color/accent_red"
+        android:textColor="@color/paper_white"
+        app:cornerRadius="16dp"
+        android:elevation="3dp"
         app:layout_constraintBottom_toBottomOf="parent" />
 
-    <!-- ➕ Yeni işlem ekleme FAB -->
+    <!-- FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAdd"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:contentDescription="@string/add_transaction"
         app:srcCompat="@drawable/ic_add_24"
-        android:layout_margin="16dp"
+        android:backgroundTint="@color/wood_dark"
+        app:tint="@color/paper_white"
+        android:elevation="5dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/btnSyncServer" />
-
+        app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
+        android:layout_margin="16dp" />
 </androidx.constraintlayout.widget.ConstraintLayout>

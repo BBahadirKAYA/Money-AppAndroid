@@ -1,10 +1,42 @@
 <resources>
+
+    <!-- 🎨 Material temel renkler -->
     <color name="md_theme_light_primary">#0E7CFF</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
+    <!-- 💰 Finans renkleri -->
     <color name="green">#4CAF50</color>
     <color name="red">#F44336</color>
-    <color name="amountNegative">#FF5252</color>
     <color name="amountPositive">#4CAF50</color>
+    <color name="amountNegative">#FF5252</color>
+    <color name="amount_expense">#D32F2F</color>
+
+    <!-- 🧩 Eski açık tema -->
+    <color name="purple_200">#BB86FC</color>
+    <color name="background_light">#FAFAFA</color>
+    <color name="text_primary">#222222</color>
+    <color name="text_secondary">#777777</color>
+    <color name="fab_bg">#E8DEF8</color>
+    <color name="divider_light">#E0E0E0</color>
+
+    <!-- 🏫 Yeni “Old School” tema -->
+    <color name="background_paper">#FFFDF6</color>
+    <color name="line_gray">#E0E0E0</color>
+    <color name="header_blue">#1E88E5</color>
+    <color name="text_black">#212121</color>
+    <color name="text_gray">#757575</color>
+    <color name="accent_yellow">#FFF59D</color>
+    <color name="fab_purple">#8E24AA</color>
+
+        <!-- 🌲 Ana tonlar -->
+        <color name="wood_light">#F5E6C4</color>       <!-- Açık ahşap -->
+        <color name="wood_medium">#C49A6C</color>      <!-- Orta ton -->
+        <color name="wood_dark">#8D6E63</color>        <!-- Koyu kahve -->
+        <color name="leaf_green">#4CAF50</color>       <!-- Vurgu rengi -->
+        <color name="accent_red">#E57373</color>       <!-- Uyarı buton rengi -->
+        <color name="paper_white">#FFFDF6</color>      <!-- Arka plan -->
+
+
+
 </resources>

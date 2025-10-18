@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Ana arka plan: açık ahşap tonu -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F5E6C4" />
+        </shape>
+    </item>
+
+    <!-- Hafif yatay damar efekti -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="0"
+                android:startColor="#10A9823F"
+                android:endColor="#00A9823F"
+                android:centerColor="#05A9823F" />
+            <size android:height="16dp" />
+        </shape>
+    </item>
+</layer-list>

@@ -44,7 +44,12 @@ data class TransactionEntity(
     // 🔹 computed (Room’a kaydedilmez)
     val paid: Boolean
         get() = (paidSum ?: 0L) > 0L
+
+    // ✅ Tamamı ödenmiş mi?
+    val fullyPaid: Boolean
+        get() = (paidSum ?: 0L) >= amountCents
 }
+
 
 fun TransactionEntity.toNetworkModel(): TransactionNetworkModel {
     // Laravel ISO formatı: yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'

@@ -5,10 +5,9 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_wood_texture"
     android:padding="12dp"
-    android:paddingBottom="?attr/actionBarSize"
     android:fitsSystemWindows="true">
 
-<!-- Mavi yerine koyu kahverengi başlık -->
+    <!-- 🟤 Başlık -->
     <LinearLayout
         android:id="@+id/monthHeader"
         android:orientation="horizontal"
@@ -40,7 +39,6 @@
             android:textStyle="bold"
             android:layout_marginHorizontal="12dp" />
 
-
         <ImageButton
             android:id="@+id/btnNextMonth"
             android:layout_width="40dp"
@@ -50,18 +48,19 @@
             android:background="?attr/selectableItemBackgroundBorderless" />
     </LinearLayout>
 
-    <!-- Liste -->
+    <!-- 📋 Liste -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_transactions"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:paddingBottom="120dp"
-        android:clipToPadding="false"
-        app:layout_constraintTop_toBottomOf="@id/monthHeader"
-        app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-    <!-- Özet Paneli: Ödenen / Kalan -->
+        android:paddingBottom="160dp"
+    android:clipToPadding="false"
+    app:layout_constraintTop_toBottomOf="@id/monthHeader"
+    app:layout_constraintBottom_toTopOf="@id/summaryPanel"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 💰 Özet Paneli -->
     <LinearLayout
         android:id="@+id/summaryPanel"
         android:layout_width="0dp"
@@ -70,7 +69,7 @@
         android:gravity="center"
         android:background="@drawable/bg_summary"
         android:padding="10dp"
-        android:elevation="2dp"
+        android:elevation="4dp"
         app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -95,7 +94,7 @@
             android:textSize="16sp" />
     </LinearLayout>
 
-    <!-- Butonlar -->
+    <!-- 🟢 Senkronize Et -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSyncServer"
         android:layout_width="match_parent"
@@ -109,6 +108,7 @@
         app:iconTint="@color/paper_white"
         app:layout_constraintBottom_toTopOf="@id/btnCheckUpdate" />
 
+    <!-- 🔴 Güncelleme -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnCheckUpdate"
         android:layout_width="match_parent"
@@ -120,7 +120,7 @@
         android:elevation="3dp"
         app:layout_constraintBottom_toBottomOf="parent" />
 
-    <!-- FAB -->
+    <!-- ➕ FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAdd"
         android:layout_width="wrap_content"
@@ -128,8 +128,10 @@
         app:srcCompat="@drawable/ic_add_24"
         android:backgroundTint="@color/wood_dark"
         app:tint="@color/paper_white"
-        android:elevation="5dp"
+        android:elevation="8dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/btnSyncServer"
-        android:layout_margin="16dp" />
+        app:layout_constraintBottom_toTopOf="@id/summaryPanel" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

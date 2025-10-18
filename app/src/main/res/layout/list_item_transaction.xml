@@ -20,7 +20,7 @@
         android:textColor="@color/text_secondary"
         android:includeFontPadding="false" />
 
-    <!-- Açıklama + Ödenen blok -->
+    <!-- 💬 Açıklama + 💸 Ödenen alanı -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -38,14 +38,15 @@
             android:textColor="@color/text_primary"
             android:includeFontPadding="false" />
 
-        <!-- 💸 Ödenen -->
+        <!-- 💸 Ödenen bilgi satırı -->
         <TextView
             android:id="@+id/tv_paid_sum"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="12sp"
             android:textColor="@color/text_secondary"
-            android:paddingTop="1dp"
+            android:paddingTop="2dp"
+            android:includeFontPadding="false"
             android:visibility="gone" />
     </LinearLayout>
 

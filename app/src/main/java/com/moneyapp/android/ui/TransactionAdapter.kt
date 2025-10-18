@@ -26,17 +26,33 @@ class TransactionAdapter :
         private val descriptionTextView: TextView = itemView.findViewById(R.id.tv_description)
         private val amountTextView: TextView = itemView.findViewById(R.id.tv_amount)
         private val dateTextView: TextView? = itemView.findViewById(R.id.tv_date)
+        private val paidSumTextView: TextView = itemView.findViewById(R.id.tv_paid_sum)
+
 
         fun bind(tx: TransactionEntity) {
             if (tx.amountCents == 0L) {
                 descriptionTextView.text = "📝 TASLAK: ${tx.description.orEmpty()}"
             }
-
+            // 💸 burada eklenecek
+            if ((tx.paidSum ?: 0L) > 0L) {
+                val paidLira = tx.paidSum!! / 100
+                val nf = NumberFormat.getInstance(Locale("tr", "TR"))
+                nf.maximumFractionDigits = 0
+                paidSumTextView.text = "💸 Ödenen: ${nf.format(paidLira)} ₺"
+                paidSumTextView.visibility = View.VISIBLE
+            } else {
+                paidSumTextView.visibility = View.GONE
+            }
             descriptionTextView.text = tx.description.orEmpty()
 
             val isIncome = tx.type == CategoryType.INCOME
             val ctx = amountTextView.context
-            val colorRes = if (isIncome) R.color.amountPositive else R.color.amountNegative
+            val colorRes = when {
+                isIncome -> R.color.amountPositive              // gelir
+                tx.fullyPaid -> R.color.amountPositive          // 💚 tamamen ödenmiş gider
+                else -> R.color.amountNegative                  // 🔴 ödenmemiş gider
+            }
+
             amountTextView.setTextColor(ContextCompat.getColor(ctx, colorRes))
             amountTextView.fontFeatureSettings = "tnum"
 

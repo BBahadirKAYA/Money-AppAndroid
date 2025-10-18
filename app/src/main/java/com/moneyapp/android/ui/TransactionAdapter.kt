@@ -28,6 +28,10 @@ class TransactionAdapter :
         private val dateTextView: TextView? = itemView.findViewById(R.id.tv_date)
 
         fun bind(tx: TransactionEntity) {
+            if (tx.amountCents == 0L) {
+                descriptionTextView.text = "📝 TASLAK: ${tx.description.orEmpty()}"
+            }
+
             descriptionTextView.text = tx.description.orEmpty()
 
             val isIncome = tx.type == CategoryType.INCOME

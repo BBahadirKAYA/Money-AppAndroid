@@ -27,31 +27,21 @@ class SyncRepository(
     suspend fun pullFromServer() = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "pullFromServer: başlatılıyor...")
+
             val remote = api.getAll().data
-            Log.d(TAG, "pullFromServer: Sunucudan ${remote.size} kayıt geldi")
+            Log.d(TAG, "🌐 Sunucudan ${remote.size} kayıt geldi")
 
-            val localDirty = dao.getDirtyTransactions().map { it.uuid }
-
-            val merged = mutableListOf<TransactionEntity>()
-            val deletedUuids = remote.filter { it.deleted }.mapNotNull { it.uuid }
-            if (deletedUuids.isNotEmpty()) {
-                deletedUuids.forEach { uuid ->
-                    dao.softDelete(uuid)
-                }
-                Log.d(TAG, "🧹 ${deletedUuids.size} kayıt sunucuda silinmiş, localde işaretlendi.")
+            // 1️⃣ Sunucudan hiç kayıt gelmediyse çık
+            if (remote.isEmpty()) {
+                dao.deleteAll()
+                Log.w(TAG, "⚠️ Sunucu boş döndü — tüm local kayıtlar silindi.")
+                return@withContext
             }
-            for (dto in remote) {
-                if (dto.uuid == null) continue
-                if (dto.uuid in localDirty) continue
 
-                // 🧩 Sunucudan deleted=true geldiyse local DB'den sil
-                if (dto.deleted) {
-                    dao.deleteByUuid(dto.uuid)
-                    Log.d(TAG, "pullFromServer: ${dto.uuid} deleted=true, localden silindi")
-                    continue
-                }
+            // 2️⃣ DTO → Entity dönüşümü
+            val entities = remote.mapNotNull { dto ->
+                if (dto.uuid == null || dto.deleted == true) return@mapNotNull null
 
-                // 🔹 Normal kayıtlar için entity oluştur
                 val dateMillis = try {
                     dto.occurred_at?.let {
                         val formatter = DateTimeFormatter
@@ -67,7 +57,7 @@ class SyncRepository(
                     System.currentTimeMillis()
                 }
 
-                merged += TransactionEntity(
+                TransactionEntity(
                     uuid = dto.uuid,
                     amountCents = ((dto.amount ?: 0.0) * 100).toLong(),
                     currency = dto.currency ?: "TRY",
@@ -84,12 +74,19 @@ class SyncRepository(
                 )
             }
 
-            dao.replaceAll(merged)
-            Log.d(TAG, "pullFromServer: ${merged.size} kayıt güncellendi.")
+            // 3️⃣ Tüm local kayıtları sil → Sunucudan gelenleri yeniden yaz
+            dao.deleteAll()
+            dao.upsertAll(entities)
+
+            Log.d(TAG, "✅ pullFromServer: Local DB temizlendi ve ${entities.size} kayıt yeniden yazıldı.")
         } catch (e: Exception) {
             Log.e(TAG, "pullFromServer hata: ${e.message}", e)
         }
     }
+
+
+
+
 
     /**
      * 2️⃣ Local dirty kayıtları Laravel'e gönder.

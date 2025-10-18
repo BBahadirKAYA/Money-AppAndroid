@@ -22,13 +22,17 @@ interface TransactionDao {
 
     // ---- QUERIES ----
 
+    // 🔹 Tüm işlemler (senkron öncesi)
+    @Query("SELECT * FROM transactions ORDER BY date DESC")
+    fun getAll(): Flow<List<TransactionEntity>>
+
     // 🔹 Sadece görünür (silinmemiş) işlemler
     @Query("SELECT * FROM transactions WHERE deleted = 0 ORDER BY date DESC")
     fun getAllVisible(): Flow<List<TransactionEntity>>
 
-    // 🔹 Tüm işlemler (gerekirse senkronizasyon öncesi)
+    // 🔹 Tüm işlemleri anlık liste olarak döndür (Flow yerine)
     @Query("SELECT * FROM transactions ORDER BY date DESC")
-    fun getAll(): Flow<List<TransactionEntity>>
+    suspend fun getAllNow(): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE localId = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
@@ -50,11 +54,45 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE uuid = :uuid")
     suspend fun deleteByUuid(uuid: String)
 
-    // 🔹 Sunucudan gelen kayıtları replace et (deleted=false olanlar)
+    // 🔹 Birden fazla kayıt silme
+    @Query("DELETE FROM transactions WHERE uuid IN (:uuids)")
+    suspend fun deleteByUuids(uuids: List<String>)
+
+    // 🔹 Sunucudan gelen kayıtları replace et
     @Transaction
     suspend fun replaceAll(transactions: List<TransactionEntity>) {
-        upsertAll(transactions)
+        // 🪵 Log başı
+        android.util.Log.d("TransactionDao", "🌀 replaceAll() çağrıldı: remote=${transactions.size}")
+
+        // 1️⃣ Sunucuda silinmiş kayıtları tamamen kaldır
+        val deletedUuids = transactions.filter { it.deleted }.mapNotNull { it.uuid }
+        if (deletedUuids.isNotEmpty()) {
+            android.util.Log.d("TransactionDao", "🧹 ${deletedUuids.size} kayıt sunucuda silinmiş, localden kaldırılıyor...")
+            deleteByUuids(deletedUuids)
+        } else {
+            android.util.Log.d("TransactionDao", "✅ Sunucuda silinmiş kayıt yok.")
+        }
+
+        // 2️⃣ Silinmemiş kayıtları upsert et
+        val active = transactions.filter { !it.deleted }
+        if (active.isNotEmpty()) {
+            android.util.Log.d("TransactionDao", "⬆️ ${active.size} aktif kayıt upsert ediliyor...")
+            upsertAll(active)
+        } else {
+            android.util.Log.d("TransactionDao", "⚪ Sunucudan aktif kayıt gelmedi.")
+        }
+
+        // 3️⃣ Localde deleted=1 kalanları da hard delete et
+        val removed = hardDeleteMarked()
+        android.util.Log.d("TransactionDao", "🧽 Local deleted=1 kayıtlar temizlendi ($removed satır).")
+
+        // 🪵 Log sonu
+        android.util.Log.d("TransactionDao", "✅ replaceAll() tamamlandı.")
     }
+
+    @Query("DELETE FROM transactions WHERE deleted = 1")
+    suspend fun hardDeleteMarked(): Int
+
 
     // ---- 📅 AYLIK FİLTRE ----
     @Query("""

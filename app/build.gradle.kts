@@ -27,7 +27,9 @@ android {
         "SIGNING_STORE_FILE", "SIGNING_STORE_PASSWORD",
         "SIGNING_KEY_ALIAS", "SIGNING_KEY_PASSWORD"
     ).all { !System.getenv(it).isNullOrBlank() }
-
+    buildFeatures {
+        viewBinding= true
+    }
     signingConfigs {
         if (hasSharedDebug) {
             create("sharedDebug") {

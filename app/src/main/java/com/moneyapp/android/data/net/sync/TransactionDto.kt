@@ -29,9 +29,6 @@ data class TransactionDto(
     @SerialName("currency")
     val currency: String? = "TRY",
 
-    @SerialName("deleted")
-    val deleted: Boolean = false,
-
     @SerialName("note")
     val note: String? = null,
 

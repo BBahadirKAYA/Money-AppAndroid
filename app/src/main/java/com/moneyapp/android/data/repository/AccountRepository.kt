@@ -2,12 +2,21 @@ package com.moneyapp.android.data.repository
 
 import com.moneyapp.android.data.db.dao.AccountDao
 import com.moneyapp.android.data.db.entities.AccountEntity
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class AccountRepository(private val dao: AccountDao) {
+    fun getAll() = dao.getAll()
 
-    // Tüm aktif hesaplar (deleted = 0)
-    fun getAll(): Flow<List<AccountEntity>> = dao.getAll()
+    suspend fun insert(account: AccountEntity) = withContext(Dispatchers.IO) {
+        dao.insert(account)
+    }
+
+    suspend fun upsertAll(accounts: List<AccountEntity>) = withContext(Dispatchers.IO) {
+        dao.upsertAll(accounts)
+    }
+
+
 
     // Ekle veya güncelle (Room REPLACE stratejisiyle)
     suspend fun upsert(account: AccountEntity): Long = dao.upsert(account)

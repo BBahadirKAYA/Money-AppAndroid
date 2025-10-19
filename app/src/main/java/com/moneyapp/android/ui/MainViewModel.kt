@@ -66,13 +66,12 @@ class MainViewModel(
         }
     }
 
-    fun softDelete(transaction: TransactionEntity) {
+    fun deleteTransaction(transaction: TransactionEntity) {
         viewModelScope.launch {
-            repository.softDelete(transaction)
-            Log.d("MainViewModel", "🔴 Soft delete uygulandı: ${transaction.uuid}")
+            repository.delete(transaction)
+            Log.d("MainViewModel", "🗑️ İşlem silindi: ${transaction.uuid}")
         }
     }
-
 
     // -----------------------------------------------------------
     // 🔄 Senkronizasyon
@@ -122,7 +121,7 @@ class MainViewModel(
                 val response = api.getAccounts()
                 if (response.isSuccessful) {
                     val list = response.body() ?: emptyList()
-                    _accounts.value = list.map {
+                    val mapped = list.map {
                         AccountEntity(
                             localId = it.id?.toLong() ?: 0L,
                             name = it.name ?: "Bilinmeyen",
@@ -130,7 +129,9 @@ class MainViewModel(
                             dirty = false
                         )
                     }
-                    Log.d("MainViewModel", "✅ ${list.size} hesap yüklendi (sunucudan)")
+                    mapped.forEach { accountRepository.insert(it) }
+                    _accounts.value = mapped
+                    Log.d("MainViewModel", "✅ ${mapped.size} hesap yüklendi (sunucudan)")
                 } else {
                     Log.e("MainViewModel", "❌ Hesap API hata: ${response.code()}")
                 }
@@ -169,22 +170,21 @@ class MainViewModel(
             }
         }
     }
+
     // -----------------------------------------------------------
     // 💰 Ödenen / Kalan Toplamları
     // -----------------------------------------------------------
 
-    // Toplam ödenen tutar
     val totalPaid: StateFlow<Double> = transactionsByMonth
         .map { list ->
-            list.filter { it.paid } // veya it.paid == true
+            list.filter { it.paid }
                 .sumOf { it.amountCents } / 100.0
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
-    // Toplam kalan tutar
     val totalUnpaid: StateFlow<Double> = transactionsByMonth
         .map { list ->
-            list.filter { !it.paid } // veya it.paid == false
+            list.filter { !it.paid }
                 .sumOf { it.amountCents } / 100.0
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)

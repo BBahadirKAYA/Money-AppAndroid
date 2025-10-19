@@ -69,7 +69,7 @@ object ApiClient {
             // String uçlar için
             .addConverterFactory(ScalarsConverterFactory.create())
             // JSON uçlar için
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .addConverterFactory(MoshiConverterFactory.create(moshi).asLenient())
             .build()
     }
 

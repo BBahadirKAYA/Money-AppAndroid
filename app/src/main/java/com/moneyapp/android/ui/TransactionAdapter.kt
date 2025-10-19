@@ -28,60 +28,44 @@ class TransactionAdapter :
         private val dateTextView: TextView? = itemView.findViewById(R.id.tv_date)
         private val paidSumTextView: TextView = itemView.findViewById(R.id.tv_paid_sum)
 
-
         fun bind(tx: TransactionEntity) {
-            if (tx.amountCents == 0L) {
-                descriptionTextView.text = "📝 TASLAK: ${tx.description.orEmpty()}"
+            val ctx = itemView.context
+            val locale = Locale("tr", "TR")
+            val numberFormat = NumberFormat.getInstance(locale).apply {
+                maximumFractionDigits = 0
+                isGroupingUsed = true
             }
-            // 💸 burada eklenecek
-            if ((tx.paidSum ?: 0L) > 0L) {
-                val paidLira = tx.paidSum!! / 100
-                val nf = NumberFormat.getInstance(Locale("tr", "TR"))
-                nf.maximumFractionDigits = 0
-                paidSumTextView.text = "💸 Ödenen: ${nf.format(paidLira)} ₺"
+
+            // 🏷 Açıklama
+            descriptionTextView.text = tx.description?.ifBlank { "(Açıklama yok)" }
+
+            // 💸 Ana tutar (gider odaklı, eksi işareti yok)
+            val formattedAmount = numberFormat.format(tx.amountCents / 100) + " ₺"
+            amountTextView.text = formattedAmount
+            amountTextView.fontFeatureSettings = "tnum"
+
+            // 🎨 Renk: gelir / tamamen ödenmiş / ödenmemiş
+            val colorRes = when {
+                tx.type == CategoryType.INCOME -> R.color.amountPositive
+                tx.fullyPaid -> R.color.amountPositive
+                else -> R.color.amountNegative
+            }
+            amountTextView.setTextColor(ContextCompat.getColor(ctx, colorRes))
+
+            // 💰 Alt satırda ödenen tutar varsa göster
+            // 💰 Alt satırda ödenen tutar varsa göster
+            val paidSum = tx.paidSum ?: 0L
+            if (paidSum > 0) {
+                val paidText = "💸 Ödenen: ${numberFormat.format(paidSum / 100)} ₺"
+                paidSumTextView.text = paidText
                 paidSumTextView.visibility = View.VISIBLE
             } else {
                 paidSumTextView.visibility = View.GONE
             }
-            descriptionTextView.text = tx.description.orEmpty()
 
-            val isIncome = tx.type == CategoryType.INCOME
-            val ctx = amountTextView.context
-            val colorRes = when {
-                isIncome -> R.color.amountPositive              // gelir
-                tx.fullyPaid -> R.color.amountPositive          // 💚 tamamen ödenmiş gider
-                else -> R.color.amountNegative                  // 🔴 ödenmemiş gider
-            }
 
-            amountTextView.setTextColor(ContextCompat.getColor(ctx, colorRes))
-            amountTextView.fontFeatureSettings = "tnum"
-
-            // 🔹 İşlem listesi gider odaklı olduğu için "−" işareti kaldırıldı
-            val sign = if (isIncome) "+ " else ""  // giderlerde işaret yok
-            val formattedAmount = formatAmountTL(tx.amountCents)
-            amountTextView.text = "$sign$formattedAmount"
-
-            dateTextView?.text = formatDate(tx.date)
-        }
-
-        private fun formatAmountTL(amountCents: Long): String {
-            val locale = Locale.forLanguageTag("tr-TR")
-            val nf = NumberFormat.getInstance(locale).apply {
-                maximumFractionDigits = 0
-                isGroupingUsed = true
-            }
-            val tlValue = txToLiras(amountCents)
-            return nf.format(tlValue) + " ₺"
-        }
-
-        private fun txToLiras(amountCents: Long): Long {
-            return kotlin.math.abs(amountCents) / 100L
-        }
-
-        private fun formatDate(epochMillis: Long): String {
-            val locale = Locale.forLanguageTag("tr-TR")
-            val sdf = SimpleDateFormat("dd.MM.yyyy", locale)
-            return sdf.format(Date(epochMillis))
+            // 📅 Tarih
+            dateTextView?.text = SimpleDateFormat("dd.MM.yyyy", locale).format(Date(tx.date))
         }
     }
 
@@ -94,10 +78,7 @@ class TransactionAdapter :
     override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
         val item = getItem(position)
         holder.bind(item)
-
         holder.itemView.setOnClickListener { onItemClick?.invoke(item) }
-
-        // ✅ Uzun basma (Düzenle / Sil menüsü)
         holder.itemView.setOnLongClickListener {
             onItemLongClick?.invoke(item)
             true
@@ -106,9 +87,11 @@ class TransactionAdapter :
 }
 
 class TransactionDiffCallback : DiffUtil.ItemCallback<TransactionEntity>() {
-    override fun areItemsTheSame(oldItem: TransactionEntity, newItem: TransactionEntity) =
-        oldItem.localId == newItem.localId
+    override fun areItemsTheSame(oldItem: TransactionEntity, newItem: TransactionEntity): Boolean {
+        return oldItem.uuid == newItem.uuid || oldItem.localId == newItem.localId
+    }
 
-    override fun areContentsTheSame(oldItem: TransactionEntity, newItem: TransactionEntity) =
-        oldItem == newItem
+    override fun areContentsTheSame(oldItem: TransactionEntity, newItem: TransactionEntity): Boolean {
+        return oldItem == newItem
+    }
 }

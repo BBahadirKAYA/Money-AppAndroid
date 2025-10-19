@@ -4,14 +4,13 @@ import android.util.Log
 import com.moneyapp.android.data.db.dao.TransactionDao
 import com.moneyapp.android.data.db.entities.TransactionEntity
 import com.moneyapp.android.data.db.entities.toNetworkModel
+import com.moneyapp.android.data.db.entities.toDto
 import com.moneyapp.android.data.net.sync.TransactionApi
 import com.moneyapp.android.data.net.sync.SyncRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.util.UUID
-import com.moneyapp.android.data.db.entities.toDto
-
 
 class TransactionRepository(
     private val dao: TransactionDao,
@@ -24,10 +23,25 @@ class TransactionRepository(
     // --------------------------------------------------------
 
     fun getAllTransactions(): Flow<List<TransactionEntity>> = dao.getAll()
-    fun getAllVisible(): Flow<List<TransactionEntity>> = dao.getAllVisible()
 
     fun getTransactionsByMonth(yearStr: String, monthStr: String): Flow<List<TransactionEntity>> {
-        return dao.getTransactionsByMonth(yearStr, monthStr)
+        val year = yearStr.toInt()
+        val month = monthStr.toInt()
+
+        val cal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.YEAR, year)
+            set(java.util.Calendar.MONTH, month - 1)
+            set(java.util.Calendar.DAY_OF_MONTH, 1)
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val startMillis = cal.timeInMillis
+        cal.add(java.util.Calendar.MONTH, 1)
+        val endMillis = cal.timeInMillis - 1
+
+        return dao.getTransactionsByMonth(startMillis, endMillis)
     }
 
     // --------------------------------------------------------
@@ -47,8 +61,6 @@ class TransactionRepository(
 
         try {
             val res = api.createOrUpdate(finalTx.toDto())
-
-
             if (res.success) {
                 dao.update(finalTx.copy(dirty = false))
                 Log.d("TransactionRepo", "✅ Sunucuya gönderildi: ${finalTx.uuid}")
@@ -85,27 +97,28 @@ class TransactionRepository(
     }
 
     // --------------------------------------------------------
-    // 🔴 Soft Delete
+    // 🗑️ Hard Delete (artık varsayılan)
     // --------------------------------------------------------
-    suspend fun softDelete(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
+    suspend fun delete(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
         try {
-            // 1️⃣ Localde işaretle (deleted = 1, dirty = 1)
-            dao.softDelete(transaction.uuid)
-            Log.d("TransactionRepo", "🔴 Soft delete (local): ${transaction.uuid}")
+            // 1️⃣ Local DB'den kaldır
+            dao.delete(transaction)
+            Log.d("TransactionRepo", "🗑️ Local silindi: ${transaction.uuid}")
 
             // 2️⃣ Sunucuya bildir
-            syncRepository.deleteRemote(transaction.uuid)
-
-            // 3️⃣ Başarılıysa temizle
-            dao.markAllClean(listOf(transaction.uuid))
-            Log.d("TransactionRepo", "✅ Soft delete senkron tamamlandı: ${transaction.uuid}")
+            val resp = api.delete(transaction.uuid)
+            if (resp.isSuccessful) {
+                Log.d("TransactionRepo", "✅ Remote silindi: ${transaction.uuid}")
+            } else {
+                Log.e("TransactionRepo", "❌ Remote delete HTTP ${resp.code()}")
+            }
         } catch (e: Exception) {
-            Log.e("TransactionRepo", "⚠️ Soft delete hata: ${e.message}", e)
+            Log.e("TransactionRepo", "⚠️ Delete hata: ${e.message}", e)
         }
     }
 
     // --------------------------------------------------------
-    // 🧹 Hard Delete / Tümünü sil
+    // 🧹 Tümünü sil (test için)
     // --------------------------------------------------------
     suspend fun deleteAll() = withContext(Dispatchers.IO) {
         dao.deleteAll()

@@ -119,7 +119,6 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
                 accountId = account.localId,
                 categoryId = category.localId,
                 date = selectedDateMillis,
-                deleted = false,
                 dirty = true
             )
 

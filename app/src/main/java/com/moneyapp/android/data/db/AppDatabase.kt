@@ -14,15 +14,17 @@ import com.moneyapp.android.data.db.entities.AccountEntity
 import com.moneyapp.android.data.db.entities.CategoryEntity
 import com.moneyapp.android.data.db.entities.RecurringRuleEntity
 import com.moneyapp.android.data.db.entities.TransactionEntity
+import com.moneyapp.android.data.db.entities.PaymentEntity   // ✅ EKLENDİ
 
 @Database(
     entities = [
         TransactionEntity::class,
         AccountEntity::class,
         CategoryEntity::class,
-        RecurringRuleEntity::class
+        RecurringRuleEntity::class,
+        PaymentEntity::class        // ✅ yeni tablo eklendi
     ],
-    version = 5,            // şema değiştiyse artır; devde fallback aktif
+    version = 6,                    // ⬆️ versiyonu 1 artır (örnek: 5 → 6)
     exportSchema = false
 )
 @TypeConverters(CategoryTypeConverter::class)

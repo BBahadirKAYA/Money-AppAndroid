@@ -64,20 +64,26 @@ class HomeFragment : Fragment() {
         binding.rvTransactions.adapter = adapter
 
         // 🧩 Uzun basınca menü aç
+// 🧩 Uzun basınca menü aç
         adapter.onItemLongClick = { transaction ->
-            val options = arrayOf("Düzenle", "Sil")
+            // 💡 Eğer işlem zaten tam ödenmişse, "Ödeme Yap" seçeneğini çıkarıyoruz
+            val options = if (transaction.fullyPaid) {
+                arrayOf("Düzenle", "Sil")
+            } else {
+                arrayOf("Düzenle", "Sil", "Ödeme Yap")
+            }
 
             androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle(transaction.description ?: "İşlem")
                 .setItems(options) { _, which ->
-                    when (which) {
-                        0 -> {
+                    when (options[which]) {
+                        "Düzenle" -> {
                             // ✏️ Düzenleme formu aç
                             TransactionEditBottomSheet
                                 .newInstance(transaction.uuid)
                                 .show(parentFragmentManager, "edit_transaction")
                         }
-                        1 -> {
+                        "Sil" -> {
                             // 🗑 Silme onayı
                             androidx.appcompat.app.AlertDialog.Builder(requireContext())
                                 .setMessage("Bu işlemi silmek istiyor musun?")
@@ -87,10 +93,18 @@ class HomeFragment : Fragment() {
                                 .setNegativeButton("Vazgeç", null)
                                 .show()
                         }
+                        "Ödeme Yap" -> {
+                            // 💸 Ödeme Yap — PaymentBottomSheet aç
+                            com.moneyapp.android.ui.payments.PaymentBottomSheet
+                                .newInstance(transaction.uuid)
+                                .show(parentFragmentManager, "payment_sheet")
+                        }
                     }
                 }
                 .show()
         }
+
+
 
         // 🔹 Flow bağlantısı — liste
         viewLifecycleOwner.lifecycleScope.launch {

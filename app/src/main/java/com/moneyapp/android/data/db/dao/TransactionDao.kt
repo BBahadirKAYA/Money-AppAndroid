@@ -3,6 +3,7 @@ package com.moneyapp.android.data.db.dao
 import androidx.room.*
 import com.moneyapp.android.data.db.entities.TransactionEntity
 import kotlinx.coroutines.flow.Flow
+import com.moneyapp.android.data.db.entities.PaymentEntity
 
 @Dao
 interface TransactionDao {
@@ -80,4 +81,10 @@ interface TransactionDao {
         startMillis: Long,
         endMillis: Long
     ): Flow<List<TransactionEntity>>
+    @Insert
+    suspend fun insertPayment(payment: PaymentEntity)
+
+    @Query("UPDATE transactions SET paidSum = (SELECT SUM(amountCents) FROM payments WHERE transactionUuid = :uuid) WHERE uuid = :uuid")
+    suspend fun updatePaidSum(uuid: String)
+
 }

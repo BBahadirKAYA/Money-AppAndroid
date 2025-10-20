@@ -131,6 +131,23 @@ class TransactionRepository(
         dao.deleteAll()
         Log.w("TransactionRepo", "🧹 Tüm işlemler localden silindi.")
     }
+    // --------------------------------------------------------
+// 💸 Ödeme ekleme
+// --------------------------------------------------------
+    suspend fun addPayment(payment: com.moneyapp.android.data.db.entities.PaymentEntity) =
+        withContext(Dispatchers.IO) {
+            try {
+                dao.insertPayment(payment)
+                dao.updatePaidSum(payment.transactionUuid)
+                Log.d("TransactionRepo", "💸 Ödeme eklendi: ${payment.transactionUuid}")
+
+                // 🔁 Senkronizasyon için dirty=true ise push işlemine bırakılır
+                syncRepository.pushDirtyToServer()
+            } catch (e: Exception) {
+                Log.e("TransactionRepo", "⚠️ Ödeme ekleme hatası: ${e.message}", e)
+            }
+        }
+
 }
 
 // --- Yardımcı: UUID otomatik üret ---

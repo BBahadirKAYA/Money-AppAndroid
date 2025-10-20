@@ -95,6 +95,13 @@ class TransactionRepository(
             Log.e("TransactionRepo", "⚠️ Güncelleme API hatası: ${e.message}")
         }
     }
+    // --------------------------------------------------------
+// 🔍 UUID ile tek kayıt getirme
+// --------------------------------------------------------
+    suspend fun getTransactionByUuid(uuid: String): TransactionEntity? =
+        withContext(Dispatchers.IO) {
+            dao.getByUuid(uuid)
+        }
 
     // --------------------------------------------------------
     // 🗑️ Hard Delete (artık varsayılan)

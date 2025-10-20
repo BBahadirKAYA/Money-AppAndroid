@@ -14,6 +14,7 @@ import com.moneyapp.android.data.net.sync.AccountApi
 import com.moneyapp.android.data.net.sync.CategoryApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.YearMonth
 import java.util.*
 
 class MainViewModel(
@@ -23,30 +24,68 @@ class MainViewModel(
     private val syncRepository: SyncRepository
 ) : ViewModel() {
 
-    private val _selectedYearMonth = MutableStateFlow(currentYearMonth())
-    val selectedYearMonth: StateFlow<Pair<Int, Int>> = _selectedYearMonth.asStateFlow()
+    // -----------------------------------------------------------
+    // 📆 Ay akışı (tek kaynak)
+    // -----------------------------------------------------------
+    private val _currentMonth = MutableStateFlow(YearMonth.now())
+    val currentMonth: StateFlow<YearMonth> = _currentMonth.asStateFlow()
 
-    // 🔹 Kategoriler
-    val categories = categoryRepository.getAll()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    // 🔹 Hesaplar
-    private val _accounts = MutableStateFlow<List<AccountEntity>>(emptyList())
-    val accounts: StateFlow<List<AccountEntity>> = _accounts.asStateFlow()
-
-    // 🔹 Dropdown seçimleri
-    val selectedCategory = MutableStateFlow<com.moneyapp.android.data.db.entities.CategoryEntity?>(null)
-    val selectedAccount = MutableStateFlow<AccountEntity?>(null)
-
-    // 🔹 Aylık işlemler
+    // 🔸 Bu aya ait işlemler
     val transactionsByMonth: StateFlow<List<TransactionEntity>> =
-        _selectedYearMonth
-            .flatMapLatest { (year, month) ->
-                val yearStr = year.toString()
-                val monthStr = String.format("%02d", month)
+        _currentMonth
+            .flatMapLatest { ym ->
+                val yearStr = ym.year.toString()
+                val monthStr = String.format("%02d", ym.monthValue)
                 repository.getTransactionsByMonth(yearStr, monthStr)
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun nextMonth() {
+        _currentMonth.value = _currentMonth.value.plusMonths(1)
+    }
+
+    fun previousMonth() {
+        _currentMonth.value = _currentMonth.value.minusMonths(1)
+    }
+    // -----------------------------------------------------------
+// 🔽 Dropdown seçimleri (Kategori / Hesap Spinner'ları için)
+// -----------------------------------------------------------
+    val selectedCategory = MutableStateFlow<com.moneyapp.android.data.db.entities.CategoryEntity?>(null)
+    val selectedAccount = MutableStateFlow<com.moneyapp.android.data.db.entities.AccountEntity?>(null)
+    // ✏️ Varolan kaydı düzenlemek için (uuid ile)
+    fun updateTransactionFields(
+        uuid: String,
+        amountCents: Long,
+        description: String?,
+        categoryId: Long,
+        accountId: Long,
+        date: Long,
+        type: com.moneyapp.android.data.db.entities.CategoryType
+    ) {
+        viewModelScope.launch {
+            try {
+                val existing = repository.getTransactionByUuid(uuid)
+                if (existing != null) {
+                    val updated = existing.copy(
+                        amountCents = amountCents,
+                        description = description,
+                        categoryId = categoryId,
+                        accountId = accountId,
+                        date = date,
+                        type = type,
+                        dirty = true,
+                        updatedAtLocal = System.currentTimeMillis()
+                    )
+                    repository.update(updated)
+                    Log.d("MainViewModel", "🟡 İşlem düzenlendi: ${existing.uuid}")
+                } else {
+                    Log.w("MainViewModel", "⚠️ updateTransactionFields: kayıt bulunamadı ($uuid)")
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "❌ updateTransactionFields hata: ${e.message}", e)
+            }
+        }
+    }
 
     // -----------------------------------------------------------
     // 🧩 CRUD İşlemleri
@@ -87,32 +126,14 @@ class MainViewModel(
     }
 
     // -----------------------------------------------------------
-    // 📆 Ay geçişleri
-    // -----------------------------------------------------------
-
-    fun nextMonth() {
-        val (y, m) = _selectedYearMonth.value
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, y)
-            set(Calendar.MONTH, m - 1)
-            add(Calendar.MONTH, 1)
-        }
-        _selectedYearMonth.value = cal.get(Calendar.YEAR) to (cal.get(Calendar.MONTH) + 1)
-    }
-
-    fun prevMonth() {
-        val (y, m) = _selectedYearMonth.value
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, y)
-            set(Calendar.MONTH, m - 1)
-            add(Calendar.MONTH, -1)
-        }
-        _selectedYearMonth.value = cal.get(Calendar.YEAR) to (cal.get(Calendar.MONTH) + 1)
-    }
-
-    // -----------------------------------------------------------
     // ☁️ API'den hesap & kategori çekme
     // -----------------------------------------------------------
+
+    private val _accounts = MutableStateFlow<List<AccountEntity>>(emptyList())
+    val accounts: StateFlow<List<AccountEntity>> = _accounts.asStateFlow()
+
+    val categories = categoryRepository.getAll()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun fetchAccountsFromServer() {
         viewModelScope.launch {
@@ -188,11 +209,4 @@ class MainViewModel(
                 .sumOf { it.amountCents } / 100.0
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
-
-    companion object {
-        private fun currentYearMonth(): Pair<Int, Int> {
-            val cal = Calendar.getInstance()
-            return cal.get(Calendar.YEAR) to (cal.get(Calendar.MONTH) + 1)
-        }
-    }
 }

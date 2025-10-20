@@ -26,6 +26,12 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
     private lateinit var accountAdapter: ArrayAdapter<String>
 
     private var selectedDateMillis: Long = System.currentTimeMillis()
+    private var editingUuid: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        editingUuid = arguments?.getString("uuid")  // 📌 düzenleme modunda uuid al
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,17 +48,18 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
         setupDatePicker()
         setupButtons()
 
-        // 🔹 Flow collect
+        // 🔹 Dropdown verilerini dinle
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.categories.collectLatest { list ->
-                updateCategoryList(list)
-            }
+            viewModel.categories.collectLatest { list -> updateCategoryList(list) }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.accounts.collectLatest { list -> updateAccountList(list) }
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.accounts.collectLatest { list ->
-                updateAccountList(list)
-            }
+        // 🧠 Eğer düzenleme modundaysa mevcut veriyi yükle
+        editingUuid?.let { uuid ->
+            val existing = viewModel.transactionsByMonth.value.find { it.uuid == uuid }
+            if (existing != null) fillExistingTransaction(existing)
         }
     }
 
@@ -64,13 +71,10 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
         binding.etAccount.setAdapter(accountAdapter)
 
         binding.etCategory.setOnItemClickListener { _, _, position, _ ->
-            val selected = viewModel.categories.value.getOrNull(position)
-            viewModel.selectedCategory.value = selected
+            viewModel.selectedCategory.value = viewModel.categories.value.getOrNull(position)
         }
-
         binding.etAccount.setOnItemClickListener { _, _, position, _ ->
-            val selected = viewModel.accounts.value.getOrNull(position)
-            viewModel.selectedAccount.value = selected
+            viewModel.selectedAccount.value = viewModel.accounts.value.getOrNull(position)
         }
     }
 
@@ -110,22 +114,44 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
 
             val amountCents = ((amountText.toDoubleOrNull() ?: 0.0) * 100).toLong()
 
-            val transaction = TransactionEntity(
-                uuid = UUID.randomUUID().toString(),
-                amountCents = amountCents,
-                currency = "TRY",
-                type = if (isIncome) CategoryType.INCOME else CategoryType.EXPENSE,
-                description = description,
-                accountId = account.localId,
-                categoryId = category.localId,
-                date = selectedDateMillis,
-                dirty = true
-            )
-
-            viewModel.insertTransaction(transaction)
+            if (editingUuid == null) {
+                // 🆕 Yeni kayıt
+                val transaction = TransactionEntity(
+                    uuid = UUID.randomUUID().toString(),
+                    amountCents = amountCents,
+                    currency = "TRY",
+                    type = if (isIncome) CategoryType.INCOME else CategoryType.EXPENSE,
+                    description = description,
+                    accountId = account.localId,
+                    categoryId = category.localId,
+                    date = selectedDateMillis,
+                    dirty = true
+                )
+                viewModel.insertTransaction(transaction)
+            } else {
+                // ✏️ Düzenleme modu
+                viewModel.updateTransactionFields(
+                    uuid = editingUuid!!,
+                    amountCents = amountCents,
+                    description = description,
+                    categoryId = category.localId,
+                    accountId = account.localId,
+                    date = selectedDateMillis,
+                    type = if (isIncome) CategoryType.INCOME else CategoryType.EXPENSE
+                )
+            }
 
             dismiss()
         }
+    }
+
+    private fun fillExistingTransaction(tx: TransactionEntity) {
+        val formatter = SimpleDateFormat("dd.MM.yyyy", Locale("tr"))
+        binding.etDesc.setText(tx.description ?: "")
+        binding.etAmount.setText((tx.amountCents / 100.0).toString())
+        binding.etDate.setText(formatter.format(Date(tx.date)))
+        selectedDateMillis = tx.date
+        if (tx.type == CategoryType.INCOME) binding.rbIncome.isChecked = true else binding.rbExpense.isChecked = true
     }
 
     private fun updateCategoryList(list: List<CategoryEntity>) {
@@ -146,6 +172,12 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
     }
 
     companion object {
-        fun newInstance() = TransactionEditBottomSheet()
+        fun newInstance(uuid: String? = null): TransactionEditBottomSheet {
+            val fragment = TransactionEditBottomSheet()
+            val args = Bundle()
+            if (uuid != null) args.putString("uuid", uuid)
+            fragment.arguments = args
+            return fragment
+        }
     }
 }

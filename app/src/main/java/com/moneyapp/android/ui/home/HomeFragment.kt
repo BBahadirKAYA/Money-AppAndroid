@@ -12,6 +12,7 @@ import com.moneyapp.android.databinding.FragmentHomeBinding
 import com.moneyapp.android.ui.TransactionAdapter
 import com.moneyapp.android.ui.MainViewModel
 import com.moneyapp.android.ui.MainViewModelFactory
+import com.moneyapp.android.ui.TransactionEditBottomSheet
 import com.moneyapp.android.data.net.ApiClient
 import com.moneyapp.android.data.net.sync.*
 import com.moneyapp.android.data.repository.*
@@ -25,7 +26,6 @@ class HomeFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var adapter: TransactionAdapter
 
-    // ✅ ViewModel artık Factory ile oluşturuluyor
     private val viewModel: MainViewModel by activityViewModels {
         val context = requireContext().applicationContext
         val db = AppDatabase.getInstance(context)
@@ -47,7 +47,6 @@ class HomeFragment : Fragment() {
         MainViewModelFactory(transactionRepo, categoryRepo, accountRepo, syncRepo)
     }
 
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -59,27 +58,65 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // 📋 RecyclerView bağlama
         adapter = TransactionAdapter()
         binding.rvTransactions.layoutManager = LinearLayoutManager(requireContext())
         binding.rvTransactions.adapter = adapter
 
-        // 🔹 Flow bağlantısı
+        // 🧩 Uzun basınca menü aç
+        adapter.onItemLongClick = { transaction ->
+            val options = arrayOf("Düzenle", "Sil")
+
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(transaction.description ?: "İşlem")
+                .setItems(options) { _, which ->
+                    when (which) {
+                        0 -> {
+                            // ✏️ Düzenleme formu aç
+                            TransactionEditBottomSheet
+                                .newInstance(transaction.uuid)
+                                .show(parentFragmentManager, "edit_transaction")
+                        }
+                        1 -> {
+                            // 🗑 Silme onayı
+                            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                                .setMessage("Bu işlemi silmek istiyor musun?")
+                                .setPositiveButton("Evet") { _, _ ->
+                                    viewModel.deleteTransaction(transaction)
+                                }
+                                .setNegativeButton("Vazgeç", null)
+                                .show()
+                        }
+                    }
+                }
+                .show()
+        }
+
+        // 🔹 Flow bağlantısı — liste
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.transactionsByMonth.collectLatest { list ->
                 adapter.submitList(list)
             }
         }
 
+        // 🔹 Ödenen toplam
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.totalPaid.collectLatest { paid ->
-                binding.tvPaidTotal.text = "Ödenen: ₺${"%.2f".format(paid)}"
+                binding.tvPaidTotal.text = "Ödenen: ₺${"%,.2f".format(paid)}"
             }
         }
 
+        // 🔹 Kalan toplam
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.totalUnpaid.collectLatest { unpaid ->
-                binding.tvRemainingTotal.text = "Kalan: ₺${"%.2f".format(unpaid)}"
+                binding.tvRemainingTotal.text = "Kalan: ₺${"%,.2f".format(unpaid)}"
             }
+        }
+
+        // ➕ Yeni işlem ekleme (FAB)
+        binding.fabAdd.setOnClickListener {
+            TransactionEditBottomSheet.newInstance()
+                .show(parentFragmentManager, "transaction_edit")
         }
     }
 

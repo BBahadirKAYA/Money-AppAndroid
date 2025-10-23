@@ -28,17 +28,17 @@ class SyncRepository(
             val remote = api.getAll().data
             Log.d(TAG, "🌐 Sunucudan ${remote.size} kayıt geldi")
 
-            // 🧹 Local DB’yi tamamen sıfırla (hard reset)
-            dao.deleteAll()
-
             if (remote.isEmpty()) {
-                Log.w(TAG, "⚠️ Sunucu boş döndü — local tamamen temizlendi.")
+                Log.w(TAG, "⚠️ Sunucu boş döndü — işlem yapılmadı.")
                 return@withContext
             }
 
             val formatter = DateTimeFormatter
                 .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.US)
                 .withZone(ZoneId.of("UTC"))
+
+            // ✅ DÜZELTME: 'localDirtyUuids' tanımlanıyor. (Hata 46:21 çözüldü)
+            val localDirtyUuids = dao.getDirtyTransactions().mapNotNull { it.uuid }.toSet()
 
             val entities = remote.mapNotNull { dto ->
                 if (dto.uuid == null) return@mapNotNull null
@@ -51,9 +51,16 @@ class SyncRepository(
                     System.currentTimeMillis()
                 }
 
+                // dirty olan kayıtları ezme
+                if (localDirtyUuids.contains(dto.uuid)) {
+                    Log.d(TAG, "⏭️ Local dirty kayıt atlandı: ${dto.uuid}")
+                    return@mapNotNull null
+                }
+
+                // ✅ DÜZELTME: 'amountCents' yerine 'amount' ve 'paidSum' Double olarak kullanılıyor. (Hata 61:21 çözüldü)
                 TransactionEntity(
                     uuid = dto.uuid,
-                    amountCents = ((dto.amount ?: 0.0) * 100).toLong(),
+                    amount = dto.amount ?: 0.0,
                     currency = dto.currency ?: "TRY",
                     type = when (dto.type?.lowercase(Locale.getDefault())) {
                         "income" -> CategoryType.INCOME
@@ -64,17 +71,18 @@ class SyncRepository(
                     categoryId = dto.category_id,
                     date = dateMillis,
                     dirty = false,
-                    paidSum = ((dto.paid_sum ?: 0.0) * 100).toLong()
+                    paidSum = dto.paid_sum ?: 0.0
                 )
-            }
+            } // ✅ DÜZELTME: mapNotNull bloğu burada kapanıyor.
 
             dao.upsertAll(entities)
-            Log.d(TAG, "✅ pullFromServer: ${entities.size} kayıt local DB’ye yazıldı.")
+            Log.d(TAG, "✅ pullFromServer: ${entities.size} kayıt güncellendi (dirty kayıtlar korunarak).")
 
         } catch (e: Exception) {
             Log.e(TAG, "pullFromServer hata: ${e.message}", e)
         }
     }
+
 
     // ────────────────────────────────────────────────
     // 2️⃣ Local dirty kayıtları Laravel’e gönder

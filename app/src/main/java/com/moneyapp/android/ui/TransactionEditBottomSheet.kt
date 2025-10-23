@@ -107,18 +107,28 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
             val account = viewModel.selectedAccount.value
             val isIncome = binding.rbIncome.isChecked
 
-            if (amountText.isNullOrEmpty() || category == null || account == null) {
-                binding.etAmount.error = if (amountText.isNullOrEmpty()) "Tutar girin" else null
+            if (amountText.isNullOrEmpty()) {
+                binding.etAmount.error = "Tutar girin"
+                return@setOnClickListener
+            }
+            if (category == null) {
+                binding.etCategory.error = "Kategori seçin"
+                return@setOnClickListener
+            }
+            if (account == null) {
+                binding.etAccount.error = "Hesap seçin"
                 return@setOnClickListener
             }
 
-            val amountCents = ((amountText.toDoubleOrNull() ?: 0.0) * 100).toLong()
+            // ✅ DÜZELTME: Tutar artık Double olarak tutuluyor, çarpma ve Long'a çevirme kaldırıldı.
+            val amount = amountText.toDoubleOrNull() ?: 0.0
 
             if (editingUuid == null) {
                 // 🆕 Yeni kayıt
                 val transaction = TransactionEntity(
                     uuid = UUID.randomUUID().toString(),
-                    amountCents = amountCents,
+                    // ✅ DÜZELTME: amountCents yerine amount kullanıldı.
+                    amount = amount,
                     currency = "TRY",
                     type = if (isIncome) CategoryType.INCOME else CategoryType.EXPENSE,
                     description = description,
@@ -132,7 +142,8 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
                 // ✏️ Düzenleme modu
                 viewModel.updateTransactionFields(
                     uuid = editingUuid!!,
-                    amountCents = amountCents,
+                    // ✅ DÜZELTME: amountCents yerine amount kullanıldı.
+                    amount = amount,
                     description = description,
                     categoryId = category.localId,
                     accountId = account.localId,
@@ -145,14 +156,48 @@ class TransactionEditBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
+    // TransactionEditBottomSheet.kt - fillExistingTransaction() metodu
+
+    // TransactionEditBottomSheet.kt - fillExistingTransaction() metodu
+
     private fun fillExistingTransaction(tx: TransactionEntity) {
         val formatter = SimpleDateFormat("dd.MM.yyyy", Locale("tr"))
         binding.etDesc.setText(tx.description ?: "")
-        binding.etAmount.setText((tx.amountCents / 100.0).toString())
+
+        // 🌟 KESİN DÜZELTME: Tutar formatlama mantığı
+        val amountToDisplay: String = if (tx.amount % 1.0 == 0.0) {
+            // Eğer tutar tam sayı ise (örn: 10072.0), sadece tam sayıyı göster ("10072")
+            // Bu, 10072,0 sorununu çözecektir.
+            tx.amount.toLong().toString()
+        } else {
+            // Eğer tutar ondalık içeriyorsa (örn: 10072.5), TR formatında (virgüllü) 2 basamak göster.
+            String.format(Locale("tr", "TR"), "%.2f", tx.amount)
+        }
+
+        binding.etAmount.setText(amountToDisplay) // Artık 10072,0 yerine 10072 görünmeli
+
         binding.etDate.setText(formatter.format(Date(tx.date)))
         selectedDateMillis = tx.date
-        if (tx.type == CategoryType.INCOME) binding.rbIncome.isChecked = true else binding.rbExpense.isChecked = true
+
+        // ✅ Tür
+        if (tx.type == CategoryType.INCOME) binding.rbIncome.isChecked = true
+        else binding.rbExpense.isChecked = true
+
+        // ✅ Kategori ve hesap dropdown’larını doldur ve seç
+        val category = viewModel.categories.value.find { it.localId == tx.categoryId }
+        val account = viewModel.accounts.value.find { it.localId == tx.accountId }
+
+        category?.let {
+            binding.etCategory.setText(it.name, false)
+            viewModel.selectedCategory.value = it
+        }
+
+        account?.let {
+            binding.etAccount.setText(it.name, false)
+            viewModel.selectedAccount.value = it
+        }
     }
+
 
     private fun updateCategoryList(list: List<CategoryEntity>) {
         categoryAdapter.clear()

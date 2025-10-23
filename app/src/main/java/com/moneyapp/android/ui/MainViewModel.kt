@@ -53,9 +53,15 @@ class MainViewModel(
     val selectedCategory = MutableStateFlow<com.moneyapp.android.data.db.entities.CategoryEntity?>(null)
     val selectedAccount = MutableStateFlow<com.moneyapp.android.data.db.entities.AccountEntity?>(null)
     // ✏️ Varolan kaydı düzenlemek için (uuid ile)
+    // MainViewModel.kt
+
+    // -----------------------------------------------------------
+// ✏️ Varolan kaydı düzenlemek için (uuid ile)
+// -----------------------------------------------------------
     fun updateTransactionFields(
         uuid: String,
-        amountCents: Long,
+        // DÜZELTME: amountCents yerine amount: Double kullanın.
+        amount: Double,
         description: String?,
         categoryId: Long,
         accountId: Long,
@@ -67,17 +73,18 @@ class MainViewModel(
                 val existing = repository.getTransactionByUuid(uuid)
                 if (existing != null) {
                     val updated = existing.copy(
-                        amountCents = amountCents,
-                        description = description,
-                        categoryId = categoryId,
-                        accountId = accountId,
+                        // DÜZELTME: amountCents = amountCents yerine amount = amount
+                        amount = amount,
+                        description = description?.ifBlank { existing.description } ?: existing.description,
+                        categoryId = categoryId.takeIf { it > 0 } ?: existing.categoryId,
+                        accountId = accountId.takeIf { it > 0 } ?: existing.accountId,
                         date = date,
                         type = type,
                         dirty = true,
                         updatedAtLocal = System.currentTimeMillis()
                     )
                     repository.update(updated)
-                    Log.d("MainViewModel", "🟡 İşlem düzenlendi: ${existing.uuid}")
+                    Log.d("MainViewModel", "🟡 İşlem düzenlendi: ${updated.uuid}")
                 } else {
                     Log.w("MainViewModel", "⚠️ updateTransactionFields: kayıt bulunamadı ($uuid)")
                 }
@@ -86,6 +93,8 @@ class MainViewModel(
             }
         }
     }
+
+
 
     // -----------------------------------------------------------
     // 🧩 CRUD İşlemleri
@@ -195,18 +204,25 @@ class MainViewModel(
     // -----------------------------------------------------------
     // 💰 Ödenen / Kalan Toplamları
     // -----------------------------------------------------------
+// MainViewModel.kt
+
+// -----------------------------------------------------------
+// 💰 Ödenen / Kalan Toplamları (DÜZELTİLMİŞ)
+// -----------------------------------------------------------
 
     val totalPaid: StateFlow<Double> = transactionsByMonth
         .map { list ->
             list.filter { it.paid }
-                .sumOf { it.amountCents } / 100.0
+                // ✅ amountCents yerine amount kullanıldı ve / 100.0 kaldırıldı.
+                .sumOf { it.amount }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     val totalUnpaid: StateFlow<Double> = transactionsByMonth
         .map { list ->
             list.filter { !it.paid }
-                .sumOf { it.amountCents } / 100.0
+                // ✅ amountCents yerine amount kullanıldı ve / 100.0 kaldırıldı.
+                .sumOf { it.amount }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 }

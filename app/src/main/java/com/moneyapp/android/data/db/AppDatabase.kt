@@ -24,7 +24,7 @@ import com.moneyapp.android.data.db.entities.PaymentEntity   // ✅ EKLENDİ
         RecurringRuleEntity::class,
         PaymentEntity::class        // ✅ yeni tablo eklendi
     ],
-    version = 6,                    // ⬆️ versiyonu 1 artır (örnek: 5 → 6)
+    version = 7,                    // ⬆️ versiyonu 1 artır (örnek: 5 → 6)
     exportSchema = false
 )
 @TypeConverters(CategoryTypeConverter::class)

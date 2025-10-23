@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import com.moneyapp.android.data.db.entities.PaymentEntity
 
 class TransactionRepository(
     private val dao: TransactionDao,
@@ -134,19 +135,51 @@ class TransactionRepository(
     // --------------------------------------------------------
 // 💸 Ödeme ekleme
 // --------------------------------------------------------
-    suspend fun addPayment(payment: com.moneyapp.android.data.db.entities.PaymentEntity) =
-        withContext(Dispatchers.IO) {
-            try {
-                dao.insertPayment(payment)
-                dao.updatePaidSum(payment.transactionUuid)
-                Log.d("TransactionRepo", "💸 Ödeme eklendi: ${payment.transactionUuid}")
+    suspend fun addPayment(payment: PaymentEntity) = withContext(Dispatchers.IO) {
+        try {
+            // 1️⃣ Ödemeyi ekle
+            dao.insertPayment(payment)
 
-                // 🔁 Senkronizasyon için dirty=true ise push işlemine bırakılır
-                syncRepository.pushDirtyToServer()
-            } catch (e: Exception) {
-                Log.e("TransactionRepo", "⚠️ Ödeme ekleme hatası: ${e.message}", e)
+            // 2️⃣ paidSum'u yeniden hesapla
+            dao.updatePaidSum(payment.transactionUuid)
+
+            // 3️⃣ Transaction'ı çek ve güncelle
+            val tx = dao.getByUuid(payment.transactionUuid)
+            if (tx != null) {
+                val updated = tx.copy(
+                    paidSum = tx.paidSum,
+                    updatedAtLocal = System.currentTimeMillis(),
+                    dirty = true
+                )
+                dao.update(updated)
+                Log.d("TransactionRepo", "💸 Ödeme sonrası paidSum=${updated.paidSum} olarak güncellendi")
+
+                // 4️⃣ Sunucuya anında gönder
+                try {
+                    val res = api.update(updated.uuid, updated.toNetworkModel())  // ✅ artık paid_sum içeriyor
+                    if (res.success) {
+                        dao.update(updated.copy(dirty = false))
+                        Log.d("TransactionRepo", "✅ Ödeme sunucuya gönderildi: ${updated.uuid}")
+                    } else {
+                        Log.e("TransactionRepo", "❌ Ödeme güncelleme başarısız: success=false")
+                    }
+                } catch (e: Exception) {
+                    Log.e("TransactionRepo", "⚠️ API update hatası: ${e.message}", e)
+                }
+            } else {
+                Log.w("TransactionRepo", "⚠️ Transaction bulunamadı: ${payment.transactionUuid}")
             }
+
+            // (İstersen bu kalsın, ek güvenlik)
+            syncRepository.pushDirtyToServer()
+
+        } catch (e: Exception) {
+            Log.e("TransactionRepo", "⚠️ Ödeme ekleme hatası: ${e.message}", e)
         }
+    }
+
+
+
 
 }
 

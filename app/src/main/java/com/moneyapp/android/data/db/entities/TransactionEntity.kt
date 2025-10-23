@@ -22,7 +22,10 @@ data class TransactionEntity(
     val localId: Long = 0L,
 
     val uuid: String,
-    val amountCents: Long,
+
+    // 💰 Artık TL cinsinden
+    val amount: Double,
+
     val currency: String = "TRY",
     val type: CategoryType = CategoryType.EXPENSE,
     val description: String? = null,
@@ -32,8 +35,8 @@ data class TransactionEntity(
 
     val dirty: Boolean = true,
 
-    // 💰 Ödeme bilgisi (kuruş cinsinden)
-    val paidSum: Long = 0L,
+    // 💸 Ödenen toplam (TL)
+    val paidSum: Double = 0.0,
 
     val createdAtLocal: Long = System.currentTimeMillis(),
     val updatedAtLocal: Long = System.currentTimeMillis(),
@@ -41,15 +44,33 @@ data class TransactionEntity(
 ) {
     // 🔹 Hesaplanan alanlar (Room’a kaydedilmez)
     val paid: Boolean
-        get() = paidSum > 0L
+        get() = paidSum > 0.0
 
     val fullyPaid: Boolean
-        get() = paidSum >= amountCents
+        get() = paidSum >= amount
 }
 
 // ─────────────────────────────────────────────
 // 🔄 DTO ve Network dönüşümleri
 // ─────────────────────────────────────────────
+fun TransactionEntity.toDto(): TransactionDto {
+    val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        .apply { timeZone = TimeZone.getTimeZone("UTC") }
+        .format(Date(this.date))
+
+    return TransactionDto(
+        uuid = this.uuid,
+        account_id = this.accountId,
+        category_id = this.categoryId,
+        type = this.type.name.lowercase(),
+        amount = this.amount,
+        paid_sum = this.paidSum,
+        currency = this.currency,
+        note = this.description,
+        occurred_at = isoDate,
+        updated_at = isoDate
+    )
+}
 
 fun TransactionEntity.toNetworkModel(): TransactionNetworkModel {
     val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.US)
@@ -61,27 +82,11 @@ fun TransactionEntity.toNetworkModel(): TransactionNetworkModel {
         account_id = this.accountId,
         category_id = this.categoryId,
         type = this.type.name.lowercase(),
-        amount = this.amountCents / 100.0,
-        occurred_at = isoDate,
-        note = this.description
-    )
-}
-
-fun TransactionEntity.toDto(): TransactionDto {
-    val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-        .apply { timeZone = TimeZone.getTimeZone("UTC") }
-        .format(Date(this.date))
-
-    return TransactionDto(
-        uuid = this.uuid,
-        account_id = this.accountId,
-        category_id = this.categoryId,
-        type = this.type.name.lowercase(),
-        amount = this.amountCents / 100.0,
-        paid_sum = this.paidSum / 100.0,
+        amount = this.amount,
+        paid_sum = this.paidSum,
         currency = this.currency,
-        note = this.description,
         occurred_at = isoDate,
-        updated_at = isoDate
+        note = this.description,
+        deleted = false
     )
 }

@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
  * Bir işlemin (Transaction) kısmi ya da tam ödemesini temsil eder.
  *
  * - Her ödeme bir Transaction'a bağlıdır (foreign key = transactionUuid)
- * - Kuruş (amountCents) bazında tutulur.
+ * - Artık tutar TL (Double) cinsinden tutulur.
  * - dirty = true ⇒ henüz sunucuya gönderilmedi
  */
 
@@ -34,11 +34,11 @@ data class PaymentEntity(
     // 🔗 Transaction ile ilişki
     val transactionUuid: String,
 
-    // 💰 Tutar (kuruş cinsinden)
-    val amountCents: Long,
+    // 💰 Tutar (TL cinsinden)
+    val amount: Double,
 
     // 📅 Ödeme tarihi (epoch millis)
-    val date: Long,
+    val paidAt: Long,
 
     // 🕓 Yerel oluşturulma zamanı
     val createdAtLocal: Long = System.currentTimeMillis(),

@@ -31,16 +31,24 @@ class TransactionAdapter :
         fun bind(tx: TransactionEntity) {
             val ctx = itemView.context
             val locale = Locale("tr", "TR")
+
+            // 🌟 DÜZELTME: NumberFormat ayarları
             val numberFormat = NumberFormat.getInstance(locale).apply {
-                maximumFractionDigits = 0
+                maximumFractionDigits = 2
+                // ✅ DÜZELTME BURADA: Minimum ondalık basamağı SIFIR yapın.
+                // Bu, 2.000,00 gibi tam sayıların 2.000 görünmesini sağlar.
+                minimumFractionDigits = 0
                 isGroupingUsed = true
             }
+
+
 
             // 🏷 Açıklama
             descriptionTextView.text = tx.description?.ifBlank { "(Açıklama yok)" }
 
-            // 💸 Ana tutar (gider odaklı, eksi işareti yok)
-            val formattedAmount = numberFormat.format(tx.amountCents / 100) + " ₺"
+            // 💸 Ana tutar
+            // ✅ DÜZELTME: amount direkt formatlanır ve ' ₺' sembolü manuel eklenir.
+            val formattedAmount = numberFormat.format(tx.amount) + " ₺"
             amountTextView.text = formattedAmount
             amountTextView.fontFeatureSettings = "tnum"
 
@@ -53,16 +61,16 @@ class TransactionAdapter :
             amountTextView.setTextColor(ContextCompat.getColor(ctx, colorRes))
 
             // 💰 Alt satırda ödenen tutar varsa göster
-            // 💰 Alt satırda ödenen tutar varsa göster
-            val paidSum = tx.paidSum ?: 0L
-            if (paidSum > 0) {
-                val paidText = "💸 Ödenen: ${numberFormat.format(paidSum / 100)} ₺"
+            val paidSum = tx.paidSum
+
+            if (paidSum > 0.0) {
+                // ✅ DÜZELTME: Formatlama ve manuel '₺' ekleme.
+                val paidText = "💸 Ödenen: ${numberFormat.format(paidSum)} ₺"
                 paidSumTextView.text = paidText
                 paidSumTextView.visibility = View.VISIBLE
             } else {
                 paidSumTextView.visibility = View.GONE
             }
-
 
             // 📅 Tarih
             dateTextView?.text = SimpleDateFormat("dd.MM.yyyy", locale).format(Date(tx.date))

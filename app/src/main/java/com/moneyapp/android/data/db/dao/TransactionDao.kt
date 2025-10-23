@@ -7,7 +7,6 @@ import com.moneyapp.android.data.db.entities.PaymentEntity
 
 @Dao
 interface TransactionDao {
-
     // ---- CRUD ----
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: TransactionEntity): Long
@@ -20,16 +19,14 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions")
     suspend fun deleteAll()
+
     @Query("SELECT * FROM transactions WHERE uuid = :uuid LIMIT 1")
     suspend fun getByUuid(uuid: String): TransactionEntity?
 
     // ---- QUERIES ----
-
-    // 🔹 Tüm işlemler
     @Query("SELECT * FROM transactions ORDER BY date DESC")
     fun getAll(): Flow<List<TransactionEntity>>
 
-    // 🔹 Tüm işlemleri anlık liste olarak döndür (Flow yerine)
     @Query("SELECT * FROM transactions ORDER BY date DESC")
     suspend fun getAllNow(): List<TransactionEntity>
 
@@ -42,36 +39,33 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(transactions: List<TransactionEntity>)
 
-    @Query("UPDATE transactions SET dirty = 0 WHERE uuid IN (:uuids)")
-    suspend fun markAllClean(uuids: List<String>)
+    // ✅ Tek versiyon (TL temelli)
+    @Query("""
+        UPDATE transactions
+        SET paidSum = (
+            SELECT IFNULL(SUM(amount), 0)
+            FROM payments
+            WHERE transactionUuid = :uuid
+        )
+        WHERE uuid = :uuid
+    """)
+    suspend fun updatePaidSum(uuid: String)
 
-    // 🔹 Tek veya çoklu silme işlemleri
     @Query("DELETE FROM transactions WHERE uuid = :uuid")
     suspend fun deleteByUuid(uuid: String)
 
     @Query("DELETE FROM transactions WHERE uuid IN (:uuids)")
     suspend fun deleteByUuids(uuids: List<String>)
-
-    // 🔹 Sunucudan gelen kayıtları doğrudan replace et (soft delete yok)
+    @Query("UPDATE transactions SET dirty = 0, updatedAtLocal = :timestamp WHERE uuid IN (:uuids)")
+    suspend fun markAllClean(uuids: List<String>, timestamp: Long = System.currentTimeMillis())
     @Transaction
     suspend fun replaceAll(transactions: List<TransactionEntity>) {
         android.util.Log.d("TransactionDao", "🌀 replaceAll() çağrıldı: remote=${transactions.size}")
-
-        // Local DB’yi sıfırla
         deleteAll()
-
-        // Gelen tüm kayıtları ekle
-        if (transactions.isNotEmpty()) {
-            upsertAll(transactions)
-            android.util.Log.d("TransactionDao", "⬆️ ${transactions.size} kayıt upsert edildi.")
-        } else {
-            android.util.Log.d("TransactionDao", "⚪ Sunucudan kayıt gelmedi.")
-        }
-
+        if (transactions.isNotEmpty()) upsertAll(transactions)
         android.util.Log.d("TransactionDao", "✅ replaceAll() tamamlandı.")
     }
 
-    // ---- 📅 AYLIK FİLTRE ----
     @Query("""
         SELECT * FROM transactions
         WHERE date BETWEEN :startMillis AND :endMillis
@@ -81,10 +75,7 @@ interface TransactionDao {
         startMillis: Long,
         endMillis: Long
     ): Flow<List<TransactionEntity>>
+
     @Insert
     suspend fun insertPayment(payment: PaymentEntity)
-
-    @Query("UPDATE transactions SET paidSum = (SELECT SUM(amountCents) FROM payments WHERE transactionUuid = :uuid) WHERE uuid = :uuid")
-    suspend fun updatePaidSum(uuid: String)
-
 }

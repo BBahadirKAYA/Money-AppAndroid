@@ -87,7 +87,7 @@ class TransactionRepository(
         try {
             val res = api.update(updated.uuid, updated.toNetworkModel())
             if (res.success) {
-                dao.update(updated.copy(dirty = false))
+              //  dao.update(updated.copy(dirty = false))
                 Log.d("TransactionRepo", "✅ Güncelleme sunucuya gönderildi: ${updated.uuid}")
             } else {
                 Log.e("TransactionRepo", "❌ Güncelleme sunucu hatası: success=false")
@@ -135,49 +135,41 @@ class TransactionRepository(
     // --------------------------------------------------------
 // 💸 Ödeme ekleme
 // --------------------------------------------------------
+// TransactionRepository.kt dosyasında
+// --------------------------------------------------------
+// 💸 Ödeme ekleme
+// --------------------------------------------------------
+// TransactionRepository.kt dosyasında
     suspend fun addPayment(payment: PaymentEntity) = withContext(Dispatchers.IO) {
         try {
-            // 1️⃣ Ödemeyi ekle
-            dao.insertPayment(payment)
+            // 1️⃣ Ödemeyi atomik olarak ekle ve paidSum'u güncelle/dirty yap
+            // (Bu, TransactionDao'daki insertPaymentAndUpdateSum'ı çağırır.)
+            dao.insertPaymentAndUpdateSum(payment)
 
-            // 2️⃣ paidSum'u yeniden hesapla
-            dao.updatePaidSum(payment.transactionUuid)
+            Log.d("TransactionRepo", "💸 Ödeme eklendi ve paidSum güncellendi: ${payment.transactionUuid}")
 
-            // 3️⃣ Transaction'ı çek ve güncelle
-            val tx = dao.getByUuid(payment.transactionUuid)
-            if (tx != null) {
-                val updated = tx.copy(
-                    paidSum = tx.paidSum,
-                    updatedAtLocal = System.currentTimeMillis(),
-                    dirty = true
+            // ⚠️ FLOW TETİKLEME GARANTİSİ: İşlemi tekrar çekip updatedAtLocal'ı güncelleyerek update et.
+            val txAfterUpdate = dao.getByUuid(payment.transactionUuid)
+            if (txAfterUpdate != null) {
+                // updatedAtLocal'ı güncelleyerek ve dirty'yi tekrar true yaparak
+                // Room'un bu değişikliği Flow'a iletmesini zorluyoruz.
+                dao.update(
+                    txAfterUpdate.copy(
+                        updatedAtLocal = System.currentTimeMillis(),
+                        // Not: updatePaidSum zaten dirty=1 yaptı, bu tekrar yapmaya gerek olmayabilir
+                        // ama güvenli tarafta kalmak iyidir.
+                        dirty = true
+                    )
                 )
-                dao.update(updated)
-                Log.d("TransactionRepo", "💸 Ödeme sonrası paidSum=${updated.paidSum} olarak güncellendi")
-
-                // 4️⃣ Sunucuya anında gönder
-                try {
-                    val res = api.update(updated.uuid, updated.toNetworkModel())  // ✅ artık paid_sum içeriyor
-                    if (res.success) {
-                        dao.update(updated.copy(dirty = false))
-                        Log.d("TransactionRepo", "✅ Ödeme sunucuya gönderildi: ${updated.uuid}")
-                    } else {
-                        Log.e("TransactionRepo", "❌ Ödeme güncelleme başarısız: success=false")
-                    }
-                } catch (e: Exception) {
-                    Log.e("TransactionRepo", "⚠️ API update hatası: ${e.message}", e)
-                }
-            } else {
-                Log.w("TransactionRepo", "⚠️ Transaction bulunamadı: ${payment.transactionUuid}")
             }
 
-            // (İstersen bu kalsın, ek güvenlik)
+            // 2️⃣ (Opsiyonel) Hemen sunucuya senkronizasyonu tetikle
             syncRepository.pushDirtyToServer()
 
         } catch (e: Exception) {
             Log.e("TransactionRepo", "⚠️ Ödeme ekleme hatası: ${e.message}", e)
         }
     }
-
 
 
 

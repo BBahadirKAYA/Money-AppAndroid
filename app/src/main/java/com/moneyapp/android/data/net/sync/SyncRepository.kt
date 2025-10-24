@@ -37,12 +37,12 @@ class SyncRepository(
                 .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.US)
                 .withZone(ZoneId.of("UTC"))
 
-            // ✅ DÜZELTME: 'localDirtyUuids' tanımlanıyor. (Hata 46:21 çözüldü)
             val localDirtyUuids = dao.getDirtyTransactions().mapNotNull { it.uuid }.toSet()
 
             val entities = remote.mapNotNull { dto ->
                 if (dto.uuid == null) return@mapNotNull null
 
+                val existing = dao.getByUuid(dto.uuid) // localde varsa çek (Bu, en güncel paidSum'ı içerir)
                 val dateMillis = try {
                     dto.occurred_at?.let { Instant.from(formatter.parse(it)).toEpochMilli() }
                         ?: System.currentTimeMillis()
@@ -51,13 +51,24 @@ class SyncRepository(
                     System.currentTimeMillis()
                 }
 
-                // dirty olan kayıtları ezme
+                // dirty kayıtları ezme
                 if (localDirtyUuids.contains(dto.uuid)) {
                     Log.d(TAG, "⏭️ Local dirty kayıt atlandı: ${dto.uuid}")
                     return@mapNotNull null
                 }
 
-                // ✅ DÜZELTME: 'amountCents' yerine 'amount' ve 'paidSum' Double olarak kullanılıyor. (Hata 61:21 çözüldü)
+                // 📢 KRİTİK GÜNCELLEME BURADA
+                val remotePaidSum = dto.paid_sum ?: 0.0
+                val localPaidSum = existing?.paidSum ?: 0.0
+
+                // Eğer sunucudan gelen değer yereldeki değerden KÜÇÜKSE, yereldeki değeri koru.
+                val finalPaidSum = if (localPaidSum > remotePaidSum) {
+                    Log.d(TAG, "🔒 PaidSum korundu: Local $localPaidSum > Remote $remotePaidSum")
+                    localPaidSum
+                } else {
+                    remotePaidSum // Aksi halde, sunucudan geleni (veya 0.0'ı) kullan.
+                }
+
                 TransactionEntity(
                     uuid = dto.uuid,
                     amount = dto.amount ?: 0.0,
@@ -71,12 +82,15 @@ class SyncRepository(
                     categoryId = dto.category_id,
                     date = dateMillis,
                     dirty = false,
-                    paidSum = dto.paid_sum ?: 0.0
+                    paidSum = finalPaidSum // <-- Yeni korumalı değer kullanılıyor
                 )
-            } // ✅ DÜZELTME: mapNotNull bloğu burada kapanıyor.
+            }
+
 
             dao.upsertAll(entities)
             Log.d(TAG, "✅ pullFromServer: ${entities.size} kayıt güncellendi (dirty kayıtlar korunarak).")
+            val afterSync = dao.getAllNow()
+            Log.d("SyncDebug", "📊 Local DB'de paidSum değerleri: ${afterSync.map { it.uuid to it.paidSum }}")
 
         } catch (e: Exception) {
             Log.e(TAG, "pullFromServer hata: ${e.message}", e)

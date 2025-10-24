@@ -39,17 +39,25 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(transactions: List<TransactionEntity>)
 
+    // TransactionDao.kt içinde
+    // ✅ Tek versiyon (TL temelli)
+// TransactionDao.kt içinde
+
     // ✅ Tek versiyon (TL temelli)
     @Query("""
-        UPDATE transactions
-        SET paidSum = (
-            SELECT IFNULL(SUM(amount), 0)
-            FROM payments
-            WHERE transactionUuid = :uuid
-        )
-        WHERE uuid = :uuid
-    """)
-    suspend fun updatePaidSum(uuid: String)
+    UPDATE transactions
+    SET paidSum = (
+        SELECT IFNULL(SUM(amount), 0)
+        FROM payments
+        WHERE transactionUuid = :uuid
+    ),
+    dirty = 1,
+    updatedAtLocal = :timestamp
+    WHERE uuid = :uuid
+""")
+    suspend fun updatePaidSum(uuid: String, timestamp: Long = System.currentTimeMillis())
+    // ^^^ Fonksiyon imzasına "timestamp" parametresi eklendi ^^^
+
 
     @Query("DELETE FROM transactions WHERE uuid = :uuid")
     suspend fun deleteByUuid(uuid: String)
@@ -64,6 +72,12 @@ interface TransactionDao {
         deleteAll()
         if (transactions.isNotEmpty()) upsertAll(transactions)
         android.util.Log.d("TransactionDao", "✅ replaceAll() tamamlandı.")
+    }
+    // TransactionDao.kt içinde
+    @Transaction
+    suspend fun insertPaymentAndUpdateSum(payment: PaymentEntity) {
+        insertPayment(payment) // 1. Ödemeyi ekler
+        updatePaidSum(payment.transactionUuid) // 2. paidSum'ı günceller ve dirty=1 yapar
     }
 
     @Query("""

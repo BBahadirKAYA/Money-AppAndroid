@@ -95,11 +95,25 @@ class TransactionAdapter :
 }
 
 class TransactionDiffCallback : DiffUtil.ItemCallback<TransactionEntity>() {
-    override fun areItemsTheSame(oldItem: TransactionEntity, newItem: TransactionEntity): Boolean {
+
+    override fun areItemsTheSame(
+        oldItem: TransactionEntity,
+        newItem: TransactionEntity
+    ): Boolean {
         return oldItem.uuid == newItem.uuid || oldItem.localId == newItem.localId
     }
 
-    override fun areContentsTheSame(oldItem: TransactionEntity, newItem: TransactionEntity): Boolean {
-        return oldItem == newItem
+    override fun areContentsTheSame(
+        oldItem: TransactionEntity,
+        newItem: TransactionEntity
+    ): Boolean {
+        return oldItem.amount == newItem.amount &&
+                oldItem.description == newItem.description &&
+                oldItem.categoryId == newItem.categoryId &&
+                oldItem.accountId == newItem.accountId &&
+                oldItem.paidSum == newItem.paidSum &&      // ✅ kritik satır
+                oldItem.date == newItem.date
     }
 }
+
+

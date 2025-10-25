@@ -10,10 +10,19 @@ data class TransactionNetworkModel(
     val type: String,
     val amount: Double,
     val paid_sum: Double? = 0.0,
-    val currency: String = "TRY",       // ✅ eklendi
+    val currency: String = "TRY",
     val occurred_at: String,
     val note: String?,
     val deleted: Boolean = false
+)
+
+// ────────────────────────────────────────────────
+// ✅ YENİ MODEL: Silinen UUID'leri karşılayacak API Cevap Modeli
+// Laravel'deki 'success':true,'data':[...] formatına uygun
+// ────────────────────────────────────────────────
+data class DeletedUuidsResponse(
+    val success: Boolean,
+    val data: List<String> // Sunucudan dönen silinmiş UUID listesi
 )
 
 /**
@@ -45,11 +54,17 @@ interface TransactionApi {
         @Body item: TransactionNetworkModel
     ): ResponseWrapper<TransactionNetworkModel>
 
-    /** 🔹 Belirtilen UUID'li kaydı soft delete yapar. */
+    /** 🔹 Belirtilen UUID'li kaydı hard delete yapar. */
     @DELETE("api/transactions/{uuid}")
     suspend fun delete(
         @Path("uuid") uuid: String
     ): Response<Unit>
+
+    // ────────────────────────────────────────────────
+    // ✅ YENİ METOT: Sunucudan silinen UUID'leri çeker
+    // ────────────────────────────────────────────────
+    @GET("api/transactions/deleted")
+    suspend fun getDeletedUuids(): Response<DeletedUuidsResponse>
 }
 
 /** Laravel’in "success":true,"data":[...] formatı için wrapper */

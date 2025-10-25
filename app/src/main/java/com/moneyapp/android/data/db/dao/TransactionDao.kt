@@ -1,5 +1,6 @@
 package com.moneyapp.android.data.db.dao
-
+import androidx.room.Dao
+import androidx.room.Query
 import androidx.room.*
 import com.moneyapp.android.data.db.entities.TransactionEntity
 import kotlinx.coroutines.flow.Flow
@@ -62,8 +63,11 @@ interface TransactionDao {
     @Query("DELETE FROM transactions WHERE uuid = :uuid")
     suspend fun deleteByUuid(uuid: String)
 
-    @Query("DELETE FROM transactions WHERE uuid IN (:uuids)")
-    suspend fun deleteByUuids(uuids: List<String>)
+
+
+    /** Verilen UUID listesindeki tüm işlemleri siler. */
+    @Query(value = "DELETE FROM transactions WHERE uuid IN (:uuids)")
+    suspend fun deleteByUuids(uuids: List<String>): Int
     @Query("UPDATE transactions SET dirty = 0, updatedAtLocal = :timestamp WHERE uuid IN (:uuids)")
     suspend fun markAllClean(uuids: List<String>, timestamp: Long = System.currentTimeMillis())
     @Transaction
@@ -92,4 +96,6 @@ interface TransactionDao {
 
     @Insert
     suspend fun insertPayment(payment: PaymentEntity)
+    /** Verilen UUID listesindeki tüm işlemleri siler. */
+
 }

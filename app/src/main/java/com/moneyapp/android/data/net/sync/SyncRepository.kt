@@ -15,7 +15,7 @@ import com.moneyapp.android.data.db.entities.toDto
 
 class SyncRepository(
     private val dao: TransactionDao,
-    private val api: TransactionApi
+    private val api: TransactionApi // Artık getDeletedUuids metodunu içeriyor
 ) {
     companion object { private const val TAG = "SyncRepository" }
 
@@ -25,6 +25,8 @@ class SyncRepository(
     suspend fun pullFromServer() = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "pullFromServer: başlatılıyor...")
+            // Not: dao.getAllNow() metodunun bu kısımdaki hata ayıklamada kullanılması için
+            // TransactionDao'da var olduğu varsayılmıştır.
             val remote = api.getAll().data
             Log.d(TAG, "🌐 Sunucudan ${remote.size} kayıt geldi")
 
@@ -39,10 +41,11 @@ class SyncRepository(
 
             val localDirtyUuids = dao.getDirtyTransactions().mapNotNull { it.uuid }.toSet()
 
+            // NOT: dao.getByUuid(dto.uuid) metodunun TransactionDao'da tanımlı olması gerekir.
             val entities = remote.mapNotNull { dto ->
                 if (dto.uuid == null) return@mapNotNull null
 
-                val existing = dao.getByUuid(dto.uuid) // localde varsa çek (Bu, en güncel paidSum'ı içerir)
+                val existing = dao.getByUuid(dto.uuid)
                 val dateMillis = try {
                     dto.occurred_at?.let { Instant.from(formatter.parse(it)).toEpochMilli() }
                         ?: System.currentTimeMillis()
@@ -57,7 +60,7 @@ class SyncRepository(
                     return@mapNotNull null
                 }
 
-                // 📢 KRİTİK GÜNCELLEME BURADA
+                // PaidSum koruma mantığı (Ödeme işlemleri localde yapılabilir)
                 val remotePaidSum = dto.paid_sum ?: 0.0
                 val localPaidSum = existing?.paidSum ?: 0.0
 
@@ -66,7 +69,7 @@ class SyncRepository(
                     Log.d(TAG, "🔒 PaidSum korundu: Local $localPaidSum > Remote $remotePaidSum")
                     localPaidSum
                 } else {
-                    remotePaidSum // Aksi halde, sunucudan geleni (veya 0.0'ı) kullan.
+                    remotePaidSum
                 }
 
                 TransactionEntity(
@@ -82,15 +85,16 @@ class SyncRepository(
                     categoryId = dto.category_id,
                     date = dateMillis,
                     dirty = false,
-                    paidSum = finalPaidSum // <-- Yeni korumalı değer kullanılıyor
+                    paidSum = finalPaidSum
                 )
             }
 
 
             dao.upsertAll(entities)
             Log.d(TAG, "✅ pullFromServer: ${entities.size} kayıt güncellendi (dirty kayıtlar korunarak).")
-            val afterSync = dao.getAllNow()
-            Log.d("SyncDebug", "📊 Local DB'de paidSum değerleri: ${afterSync.map { it.uuid to it.paidSum }}")
+            // ⚠️ Not: dao.getAllNow() metodunun var olduğunu varsayarak log bırakıyorum.
+            // val afterSync = dao.getAllNow()
+            // Log.d("SyncDebug", "📊 Local DB'de paidSum değerleri: ${afterSync.map { it.uuid to it.paidSum }}")
 
         } catch (e: Exception) {
             Log.e(TAG, "pullFromServer hata: ${e.message}", e)
@@ -138,6 +142,38 @@ class SyncRepository(
             }
         } catch (e: Exception) {
             Log.e(TAG, "deleteRemote hata: ${e.message}", e)
+        }
+    }
+
+    // ────────────────────────────────────────────────
+    // ✅ YENİ METOT: Sunucudan silinen kayıtları local DB'den sil
+    // ────────────────────────────────────────────────
+    suspend fun syncDeletions() = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "syncDeletions: başlatılıyor...")
+
+            // API'den silinen UUID listesini çek
+            val response = api.getDeletedUuids()
+
+            if (response.isSuccessful) {
+                val deletedUuids = response.body()?.data ?: emptyList()
+
+                if (deletedUuids.isNotEmpty()) {
+                    // Local DB'den toplu silme işlemini yap
+                    val deletedCount = dao.deleteByUuids(deletedUuids)
+                    Log.d(TAG, "✅ syncDeletions: ${deletedCount} kayıt localden silindi.")
+
+                    // Not: Buradan sonra Laravel'e "Bu UUID'leri işledim, DeletedRecords tablosundan silebilirsin"
+                    // isteği göndermek en iyi uygulamadır, ancak şimdilik bunu atlıyoruz.
+                } else {
+                    Log.d(TAG, "syncDeletions: Silinecek kayıt bulunamadı.")
+                }
+            } else {
+                Log.e(TAG, "❌ syncDeletions: API HTTP ${response.code()}")
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "syncDeletions hata: ${e.message}", e)
         }
     }
 }

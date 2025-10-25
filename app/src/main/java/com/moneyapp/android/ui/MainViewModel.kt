@@ -128,8 +128,16 @@ class MainViewModel(
     fun syncWithServer() {
         viewModelScope.launch {
             Log.d("MainViewModel", "🌐 Sunucuyla senkron başlatıldı…")
+
+            // 1. Local dirty kayıtları Laravel’e gönder (Push)
             syncRepository.pushDirtyToServer()
+
+            // 2. ✅ YENİ: Sunucudan silinen kayıtları çek ve localden sil
+            syncRepository.syncDeletions()
+
+            // 3. Sunucudan yeni/güncel listeyi çek ve local DB’ye uygula (Pull)
             syncRepository.pullFromServer()
+
             Log.d("MainViewModel", "✅ Senkron tamamlandı.")
         }
     }
@@ -204,16 +212,13 @@ class MainViewModel(
     // -----------------------------------------------------------
     // 💰 Ödenen / Kalan Toplamları
     // -----------------------------------------------------------
-// MainViewModel.kt
-
 // -----------------------------------------------------------
-// 💰 Ödenen / Kalan Toplamları (DÜZELTİLMİŞ)
-// -----------------------------------------------------------
+    // 💰 Ödenen / Kalan Toplamları (DÜZELTİLMİŞ)
+    // -----------------------------------------------------------
 
     val totalPaid: StateFlow<Double> = transactionsByMonth
         .map { list ->
             list.filter { it.paid }
-                // ✅ amountCents yerine amount kullanıldı ve / 100.0 kaldırıldı.
                 .sumOf { it.amount }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
@@ -221,7 +226,6 @@ class MainViewModel(
     val totalUnpaid: StateFlow<Double> = transactionsByMonth
         .map { list ->
             list.filter { !it.paid }
-                // ✅ amountCents yerine amount kullanıldı ve / 100.0 kaldırıldı.
                 .sumOf { it.amount }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
